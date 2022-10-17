@@ -49,7 +49,15 @@ def calculate_point_on_line(point1, point2, distance_from_p1):
 
 class Projection:
     # https://stackoverflow.com/questions/76134/how-do-i-reverse-project-2d-points-into-3d
-    pass
+    @staticmethod
+    def toworld(x,y, inverse_homography_matrix):
+        # https://stackoverflow.com/questions/44578876/opencv-homography-to-find-global-xy-coordinates-from-pixel-xy-coordinates
+        imagepoint = [x, y, 1]
+        worldpoint = np.array(np.dot(inverse_homography_matrix, imagepoint))
+        scalar = worldpoint[2]
+        xworld = worldpoint[0]/scalar
+        yworld = worldpoint[1]/scalar
+        return xworld, yworld, scalar
 
 
 def estimate_camera_matrix(points, image):
@@ -149,34 +157,12 @@ while True:
             cv.line(img, backboard_bot_left, backboard_top_left, (255, 255, 0), 2)
 
             advert_size = np.float32([[0, 0], [1920, 0], [1920, 1080], [0, 1080]])
-            backboard_shape = np.float32([backboard_top_left, backboard_top_right,
-                                          backboard_bot_right, backboard_bot_left])
-            transform = cv.getPerspectiveTransform(advert_size, backboard_shape)
-            advert2 = cv.warpPerspective(advert, transform, (1920, 1080))
-            # final_image = blend_non_transparent(img, advert2)
-            result = cv2.copyTo(frame, frame)
-            result += cv2.copyTo(advert2, advert2)
 
-            cv.imshow('advert', result)
-            # homography = cv.findHomography(p1, backboard_size_3d, 0, 0)
-            # print(homography[0])
-            # try:
-            #     im_out = cv2.warpPerspective(advert, homography[0], (advert.shape[1] * 2, advert.shape[0] * 2))
-            #     cv.imshow('out', im_out)
-            # except:
-            #     pass
-            # print(matrix1)
-            # print(mask1)
-
-            # advert_point_0 = calculate_point_on_line(p1[0][0].astype(np.int64), p1[1][0].astype(np.int64), 0)
-            # advert_point_1 = calculate_point_on_line(p1[0][0].astype(np.int64), p1[1][0].astype(np.int64), 0.15)
-            # cv.circle(img, advert_point_0, 7, (255, 100, 100), -1)
-            # cv.circle(img, advert_point_1, 7, (255, 100, 100), -1)
+            homography = cv.findHomography(p1, backboard_size_3d, 0, 0)[0]
+            world_coords = Projection.toworld(backboard_top_left[0], backboard_top_left[1], homography)
+            print(world_coords)
 
             cv.imshow('frame', img)
-            # cv.imshow('advert', advert)
-            # cv.imshow('advert', advert)
-            # cv.imshow('advert2', advert_placement)
             cv.setMouseCallback("frame", mouse_click)
             k = cv.waitKey(1)
 
