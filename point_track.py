@@ -15,7 +15,7 @@ old_gray = cv.cvtColor(old_frame, cv.COLOR_BGR2GRAY)
 
 # Hardcoded initial points
 # p0 = np.array([[[677, 460]], [[1406, 512]], [[1119, 628]], [[1076, 625]]], dtype=np.float32)
-p0 = np.array([[[963, 299]], [[1061, 305]], [[1058, 359]], [[963, 355]]], dtype=np.float32)
+p0 = np.array([[[963, 299]], [[1061, 305]], [[1058, 359]], [[963, 355]], [[677, 460]]], dtype=np.float32)
 """Court left point, Court right point, free throw point, """
 mask = np.zeros_like(old_frame)
 black_display = np.copy(old_frame) * 0
@@ -149,6 +149,7 @@ while True:
             backboard_top_right = p1[1][0].astype(np.int64)
             backboard_bot_right = p1[2][0].astype(np.int64)
             backboard_bot_left = p1[3][0].astype(np.int64)
+            court_corner_left = p1[4][0].astype(np.int64)
             backboard_size_3d = np.asarray([[0, 122, 0], [182, 122, 0], [182, 0, 0], [0, 0, 0]])
 
             cv.line(img, backboard_top_left, backboard_top_right, (255, 255, 0), 2)
@@ -158,13 +159,13 @@ while True:
 
             advert_size = np.float32([[0, 0], [1920, 0], [1920, 1080], [0, 1080]])
 
-            homography = cv.findHomography(p1, backboard_size_3d, 0, 0)[0]
-            world_coords = Projection.toworld(backboard_top_left[0], backboard_top_left[1], homography)
+            homography = cv.findHomography(p1[:4], backboard_size_3d, 0, 0)[0]
+            world_coords = Projection.toworld(court_corner_left[0], court_corner_left[1], homography)
             print(world_coords)
 
             cv.imshow('frame', img)
             cv.setMouseCallback("frame", mouse_click)
-            k = cv.waitKey(1)
+            k = cv.waitKey(0)
 
             old_gray = frame_gray.copy()
             p0 = good_new.reshape(-1, 1, 2)
