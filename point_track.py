@@ -5,7 +5,7 @@ import cv2 as cv
 cap = cv.VideoCapture("Tokyo_2020_Highlight_1.mp4")
 advert = cv.imread("euro.png", -1)
 advert = cv.resize(advert, (1920, 1080))
-
+videowriter = cv2.VideoWriter("output.avi", cv2.VideoWriter_fourcc(*"XVID"), 30, (1920, 1080))
 # Parameters for lucas kanade optical flow
 lk_params = dict(winSize=(15, 15), maxLevel=2, criteria=(cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 0.03))
 
@@ -50,79 +50,24 @@ def calculate_point_on_line(point1, point2, distance_from_p1):
 class Projection:
     # https://stackoverflow.com/questions/76134/how-do-i-reverse-project-2d-points-into-3d
     @staticmethod
-    def toworld(x,y, inverse_homography_matrix):
+    def pixel2world(x, y, homography):
         # https://stackoverflow.com/questions/44578876/opencv-homography-to-find-global-xy-coordinates-from-pixel-xy-coordinates
         imagepoint = [x, y, 1]
-        worldpoint = np.array(np.dot(inverse_homography_matrix, imagepoint))
+        worldpoint = np.array(np.dot(homography, imagepoint))
         scalar = worldpoint[2]
-        xworld = worldpoint[0]/scalar
-        yworld = worldpoint[1]/scalar
+        xworld = worldpoint[0] / scalar
+        yworld = worldpoint[1] / scalar
         return xworld, yworld, scalar
 
-
-def estimate_camera_matrix(points, image):
-    c11, c12, c13, c14, c21, c22, c23, c24, c31, c32, c33 = 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-    c34 = 1
-    x_length = 100
-    y_length = 40
-    x1 = points[0][0][0]
-    y1 = points[0][0][1]
-    x2 = points[1][0][0]
-    y2 = points[1][0][1]
-    x3 = points[2][0][0]
-    y3 = points[2][0][1]
-
-    uv_matrix = np.array([[x1], [y1], [x2], [y2], [x3], [y3]])
-
-    c_matrix = np.array([[c11], [c12], [c13], [c14], [c21], [c22],
-                         [c23], [c24], [c31], [c32], [c33], [c34]])
-
-    perspective_1 = np.array([0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0])
-    perspective_2 = np.array([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0])
-    perspective_3 = np.array([x_length, 0, 0, 1, 0, 0, 0, 0, -x2 * x_length, 0, 0])
-    perspective_4 = np.array([0, 0, 0, 0, x_length, 0, 0, 1, -y2 * x_length, 0, 0])
-    perspective_5 = np.array([0, y_length, 0, 1, 0, 0, 0, 0, 0, -x3 * y_length, 0])
-    perspective_6 = np.array([0, 0, 0, 0, 0, y_length, 0, 1, 0, -y3 * y_length, 0])
-
-    perspective_matrix = np.array([perspective_1, perspective_2, perspective_3,
-                                   perspective_4, perspective_5, perspective_6])
-
-    var_c, residuals, rank, s = np.linalg.lstsq(perspective_matrix, uv_matrix, rcond=None)
-
-    c11 = var_c[0]
-    c12 = var_c[1]
-    c13 = var_c[2]
-    c14 = var_c[3]
-    c21 = var_c[4]
-    c22 = var_c[5]
-    c23 = var_c[6]
-    c24 = var_c[7]
-    c31 = var_c[8]
-    c32 = var_c[9]
-    c33 = var_c[10]
-
-    xas1 = 0
-    yas1 = 0
-    xas2 = 20
-    yas2 = 20
-    xas3 = 10
-    yas3 = 10
-    zas = 0
-
-    unew1 = int((c11 * xas1 + c12 * yas1 + c13 * zas + c14) / (c31 * xas1 + c32 * yas1 + c33 * zas + 1))
-    vnew1 = int((c21 * xas1 + c22 * yas1 + c23 * zas + c24) / (c31 * xas1 + c32 * yas1 + c33 * zas + 1))
-    unew2 = int((c11 * xas2 + c12 * yas2 + c13 * zas + c14) / (c31 * xas2 + c32 * yas2 + c33 * zas + 1))
-    vnew2 = int((c21 * xas2 + c22 * yas2 + c23 * zas + c24) / (c31 * xas2 + c32 * yas2 + c33 * zas + 1))
-    unew3 = int((c11 * xas3 + c12 * yas3 + c13 * zas + c14) / (c31 * xas3 + c32 * yas3 + c33 * zas + 1))
-    vnew3 = int((c21 * xas3 + c22 * yas3 + c23 * zas + c24) / (c31 * xas3 + c32 * yas3 + c33 * zas + 1))
-
-    cv.circle(image, (unew1, vnew1), 10, (255, 0, 255), -1)
-    cv.circle(image, (unew2, vnew2), 10, (255, 0, 255), -1)
-    cv.circle(image, (unew3, vnew3), 10, (255, 0, 255), -1)
-
-    # print((unew1, vnew1))
-    # print((unew2, vnew2))
-    # print((unew3, vnew3))
+    @staticmethod
+    def world2pixel(coords, homography):
+        # https://stackoverflow.com/questions/44578876/opencv-homography-to-find-global-xy-coordinates-from-pixel-xy-coordinates
+        imagepoint = coords
+        worldpoint = np.array(np.dot(np.linalg.inv(homography), imagepoint))
+        scalar = worldpoint[2]
+        x_pixel = worldpoint[0] / scalar
+        y_pixel = worldpoint[1] / scalar
+        return int(x_pixel), int(y_pixel), scalar
 
 
 Projection = Projection()
@@ -150,27 +95,39 @@ while True:
             backboard_bot_right = p1[2][0].astype(np.int64)
             backboard_bot_left = p1[3][0].astype(np.int64)
             court_corner_left = p1[4][0].astype(np.int64)
-            backboard_size_3d = np.asarray([[0, 122, 0], [182, 122, 0], [182, 0, 0], [0, 0, 0]])
-
+            points_coords_3d = np.asarray([[0, 122, 0], [182, 122, 0], [182, 0, 0], [0, 0, 0], [-660, -270, 0]])
             cv.line(img, backboard_top_left, backboard_top_right, (255, 255, 0), 2)
             cv.line(img, backboard_top_right, backboard_bot_right, (255, 255, 0), 2)
             cv.line(img, backboard_bot_right, backboard_bot_left, (255, 255, 0), 2)
             cv.line(img, backboard_bot_left, backboard_top_left, (255, 255, 0), 2)
 
-            advert_size = np.float32([[0, 0], [1920, 0], [1920, 1080], [0, 1080]])
+            homography = cv.findHomography(p1, points_coords_3d, 0, 0)[0]
+            world_coords = Projection.pixel2world(court_corner_left[0], court_corner_left[1], homography)
+            print(f"Court corner world: {world_coords}")
 
-            homography = cv.findHomography(p1[:4], backboard_size_3d, 0, 0)[0]
-            world_coords = Projection.toworld(court_corner_left[0], court_corner_left[1], homography)
-            print(world_coords)
+            advert_world = [[-550, -260, 1], [-550, -160, 1.1], [-380, -160, 1.1], [-380, -260, 0.97]]
+            advert_bot_left = Projection.world2pixel(advert_world[0], homography)
+            advert_top_left = Projection.world2pixel(advert_world[1], homography)
+            advert_top_right = Projection.world2pixel(advert_world[2], homography)
+            advert_bot_right = Projection.world2pixel(advert_world[3], homography)
+            # Draw temporary rectangle
+            cv.line(img, advert_bot_left[:2], advert_top_left[:2], (255, 100, 0), 2)
+            cv.line(img, advert_top_left[:2], advert_top_right[:2], (255, 100, 0), 2)
+            cv.line(img, advert_top_right[:2], advert_bot_right[:2], (255, 100, 0), 2)
+            cv.line(img, advert_bot_right[:2], advert_bot_left[:2], (255, 100, 0), 2)
+
+            cv.line(img, advert_bot_right[:2], advert_top_left[:2], (255, 100, 0), 1)
+            cv.line(img, advert_top_right[:2], advert_bot_left[:2], (255, 100, 0), 1)
 
             cv.imshow('frame', img)
+            videowriter.write(img)
             cv.setMouseCallback("frame", mouse_click)
-            k = cv.waitKey(0)
-
+            k = cv.waitKey(10)
             old_gray = frame_gray.copy()
             p0 = good_new.reshape(-1, 1, 2)
         else:
             cv.destroyAllWindows()
+            videowriter.release()
             break
     except Exception as error:
         print(error)
