@@ -1,43 +1,20 @@
 import cv2
+import traceback
 import numpy as np
-import cv2 as cv
 
-cap = cv.VideoCapture("Tokyo_2020_Highlight_1.mp4")
-advert = cv.imread("euro.png", -1)
-advert = cv.resize(advert, (1920, 1080))
-videowriter = cv2.VideoWriter("output.avi", cv2.VideoWriter_fourcc(*"XVID"), 30, (1920, 1080))
-# Parameters for lucas kanade optical flow
-lk_params = dict(winSize=(15, 15), maxLevel=2, criteria=(cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 0.03))
+video_name = "Tokyo_2020_Highlight_2.mp4"
+input_video = cv2.VideoCapture(f"videos/{video_name}")
+advertisement = cv2.imread("euro.png", -1)
+advertisement = cv2.resize(advertisement, (1920, 1080))
 
-color = np.random.randint(0, 255, (100, 3))
-ret, old_frame = cap.read()
-old_gray = cv.cvtColor(old_frame, cv.COLOR_BGR2GRAY)
+""" Just some links that might be useful
+https://stackoverflow.com/questions/36921496/how-to-join-png-with-alpha-transparency-in-a-frame-in-realtime/37198079#37198079
 
-# Hardcoded initial points
-# p0 = np.array([[[677, 460]], [[1406, 512]], [[1119, 628]], [[1076, 625]]], dtype=np.float32)
-p0 = np.array([[[963, 299]], [[1061, 305]], [[1058, 359]], [[963, 355]], [[677, 460]]], dtype=np.float32)
-"""Court left point, Court right point, free throw point, """
-mask = np.zeros_like(old_frame)
-black_display = np.copy(old_frame) * 0
-
-
-def blend_non_transparent(face_img, overlay_img):
-    # https://stackoverflow.com/questions/36921496/how-to-join-png-with-alpha-transparency-in-a-frame-in-realtime/37198079#37198079
-
-    gray_overlay = cv.cvtColor(overlay_img, cv.COLOR_BGR2GRAY)
-    overlay_mask = cv.threshold(gray_overlay, 1, 255, cv.THRESH_BINARY)[1]
-    overlay_mask = cv.erode(overlay_mask, cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3)))
-    overlay_mask = cv.blur(overlay_mask, (3, 3))
-    background_mask = 255 - overlay_mask
-    overlay_mask = cv.cvtColor(overlay_mask, cv.COLOR_GRAY2BGR)
-    background_mask = cv.cvtColor(background_mask, cv.COLOR_GRAY2BGR)
-    face_part = (face_img * (1 / 255.0)) * (background_mask * (1 / 255.0))
-    overlay_part = (overlay_img * (1 / 255.0)) * (overlay_mask * (1 / 255.0))
-    return np.uint8(cv.addWeighted(face_part, 255.0, overlay_part, 255.0, 0.0))
+"""
 
 
 def mouse_click(event, x, y, flags, param):
-    if event == cv.EVENT_LBUTTONDOWN:
+    if event == cv2.EVENT_LBUTTONDOWN:
         print(f"X:{x}, Y:{y}")
 
 
@@ -50,85 +27,164 @@ def calculate_point_on_line(point1, point2, distance_from_p1):
 class Projection:
     # https://stackoverflow.com/questions/76134/how-do-i-reverse-project-2d-points-into-3d
     @staticmethod
-    def pixel2world(x, y, homography):
+    def pixel2world(x, y, homography_matrix):
         # https://stackoverflow.com/questions/44578876/opencv-homography-to-find-global-xy-coordinates-from-pixel-xy-coordinates
         imagepoint = [x, y, 1]
-        worldpoint = np.array(np.dot(homography, imagepoint))
+        worldpoint = np.array(np.dot(homography_matrix, imagepoint))
         scalar = worldpoint[2]
         xworld = worldpoint[0] / scalar
         yworld = worldpoint[1] / scalar
         return xworld, yworld, scalar
 
     @staticmethod
-    def world2pixel(coords, homography):
-        # https://stackoverflow.com/questions/44578876/opencv-homography-to-find-global-xy-coordinates-from-pixel-xy-coordinates
-        imagepoint = coords
-        worldpoint = np.array(np.dot(np.linalg.inv(homography), imagepoint))
-        scalar = worldpoint[2]
-        x_pixel = worldpoint[0] / scalar
-        y_pixel = worldpoint[1] / scalar
+    def world2pixel(world_coordinates, homography_matrix):
+        world_point = np.array(np.dot(np.linalg.inv(homography_matrix), world_coordinates))
+        scalar = world_point[2]
+        x_pixel = world_point[0] / scalar
+        y_pixel = world_point[1] / scalar
         return int(x_pixel), int(y_pixel), scalar
 
 
+def show_multiple_output(video_feeds_list, scale):
+    for i, video_feed in enumerate(video_feeds_list):
+        cv2.namedWindow(f"Output {i}", cv2.WINDOW_KEEPRATIO)
+        cv2.imshow(f"Output {i}", video_feed)
+        cv2.resizeWindow(f"Output {i}", int(input_video.get(3)) // scale, int(input_video.get(4)) // scale)
+        cv2.setMouseCallback(f"Output {i}", mouse_click)
+
+
+def hardcoded_points_selector(video_name):
+    points = None
+    coordinates_3d = None
+    advert_world_coordinates = None
+    if video_name == "Tokyo_2020_Highlight_1.mp4":
+        # First 4 are back board, last is left corner of court
+        # NB TODO: the order here should be changed to same according to below
+        points = np.array([[[963, 299]], [[1061, 305]], [[1058, 359]], [[963, 355]], [[677, 460]]], dtype=np.float32)
+        coordinates_3d = np.asarray([[0, 122, 0], [182, 122, 0], [182, 0, 0], [0, 0, 0], [-660, -270, 0]])
+        advert_world_coordinates = [[-550, -260, 1], [-550, -160, 1.1], [-380, -160, 1.1], [-380, -260, 0.97]]
+
+    if video_name == "Tokyo_2020_Highlight_2.mp4":
+        # First 4 are back board, last is center left ring of court (on the same line as basket)
+        # bot left, top left, top right, bot right, ground
+        points = np.array([[[755, 278]], [[752, 140]], [[968, 132]], [[968, 266]], [[714, 674]]], dtype=np.float32)
+        coordinates_3d = np.asarray([[0, 0, 0], [0, 122, 0], [182, 122, 0], [182, 0, 0], [-50, -300, 0]])
+        advert_world_coordinates = [[350, -300, 1.1], [350, -200, 1.1], [500, -200, 1.06], [500, -300, 1.06]]
+
+    return points, coordinates_3d, advert_world_coordinates
+
+
 Projection = Projection()
-while True:
-    ret, frame = cap.read()
-    try:
-        if ret:
-            frame_gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
-            # calculate optical flow
-            p1, st, err = cv.calcOpticalFlowPyrLK(old_gray, frame_gray, p0, None, **lk_params)
-            # Select good points
-            if p1 is not None:
-                good_new = p1[st == 1]
-                good_old = p0[st == 1]
-            # draw the tracks
-            for i, (new, old) in enumerate(zip(good_new, good_old)):
-                a, b = new.ravel()
-                c, d = old.ravel()
-                mask = cv.line(mask, (int(a), int(b)), (int(c), int(d)), color[i].tolist(), 2)
-                frame = cv.circle(frame, (int(a), int(b)), 5, color[i].tolist(), -1)
-            img = cv.add(frame, mask)
+SAVE_VIDEO = False
+SELECT_POINTS_ONLY = False
+videowriter = None
 
-            backboard_top_left = p1[0][0].astype(np.int64)
-            backboard_top_right = p1[1][0].astype(np.int64)
-            backboard_bot_right = p1[2][0].astype(np.int64)
-            backboard_bot_left = p1[3][0].astype(np.int64)
-            court_corner_left = p1[4][0].astype(np.int64)
-            points_coords_3d = np.asarray([[0, 122, 0], [182, 122, 0], [182, 0, 0], [0, 0, 0], [-660, -270, 0]])
-            cv.line(img, backboard_top_left, backboard_top_right, (255, 255, 0), 2)
-            cv.line(img, backboard_top_right, backboard_bot_right, (255, 255, 0), 2)
-            cv.line(img, backboard_bot_right, backboard_bot_left, (255, 255, 0), 2)
-            cv.line(img, backboard_bot_left, backboard_top_left, (255, 255, 0), 2)
+if SAVE_VIDEO:
+    videowriter = cv2.VideoWriter("output.avi", cv2.VideoWriter_fourcc(*"XVID"), 30, (1920, 1080))
 
-            homography = cv.findHomography(p1, points_coords_3d, 0, 0)[0]
-            world_coords = Projection.pixel2world(court_corner_left[0], court_corner_left[1], homography)
-            print(f"Court corner world: {world_coords}")
-
-            advert_world = [[-550, -260, 1], [-550, -160, 1.1], [-380, -160, 1.1], [-380, -260, 0.97]]
-            advert_bot_left = Projection.world2pixel(advert_world[0], homography)
-            advert_top_left = Projection.world2pixel(advert_world[1], homography)
-            advert_top_right = Projection.world2pixel(advert_world[2], homography)
-            advert_bot_right = Projection.world2pixel(advert_world[3], homography)
-            # Draw temporary rectangle
-            cv.line(img, advert_bot_left[:2], advert_top_left[:2], (255, 100, 0), 2)
-            cv.line(img, advert_top_left[:2], advert_top_right[:2], (255, 100, 0), 2)
-            cv.line(img, advert_top_right[:2], advert_bot_right[:2], (255, 100, 0), 2)
-            cv.line(img, advert_bot_right[:2], advert_bot_left[:2], (255, 100, 0), 2)
-
-            cv.line(img, advert_bot_right[:2], advert_top_left[:2], (255, 100, 0), 1)
-            cv.line(img, advert_top_right[:2], advert_bot_left[:2], (255, 100, 0), 1)
-
-            cv.imshow('frame', img)
-            videowriter.write(img)
-            cv.setMouseCallback("frame", mouse_click)
-            k = cv.waitKey(10)
-            old_gray = frame_gray.copy()
-            p0 = good_new.reshape(-1, 1, 2)
+if __name__ == "__main__":
+    while True:
+        frame_count = 0
+        input_video.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        # Initialize optical flow parameters
+        good_new, good_old = None, None
+        lucas_kanade = dict(winSize=(15, 15), maxLevel=3,
+                            criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+        color = np.random.randint(0, 255, (100, 3))
+        # Grab first frame for optical flow
+        if input_video.isOpened():
+            ret, old_frame = input_video.read()
+            old_gray = cv2.cvtColor(old_frame, cv2.COLOR_BGR2GRAY)
+            mask = np.zeros_like(old_frame)
+            # Hardcoded initial points (double-click on frame to print coordinates)
+            p0, points_coordinates_3d, advert_world = hardcoded_points_selector(video_name)
         else:
-            cv.destroyAllWindows()
-            videowriter.release()
-            break
-    except Exception as error:
-        print(error)
-        cv.destroyAllWindows()
+            print("Could not open video")
+            raise SystemExit
+
+        """ Main video loop """
+        while frame_count < input_video.get(cv2.CAP_PROP_FRAME_COUNT):
+            ret, frame = input_video.read()
+            if SELECT_POINTS_ONLY:
+                show_multiple_output([frame], 1)
+                k = cv2.waitKey(0)
+                if k == 27:  # ESC exits the video
+                    cv2.destroyAllWindows()
+                    input_video.release()
+                    raise SystemExit
+
+            try:
+                if ret:
+                    frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+                    # Optical flow
+                    p1, st, err = cv2.calcOpticalFlowPyrLK(old_gray, frame_gray, p0, None, **lucas_kanade)
+                    # Select good points
+                    if p1 is not None:
+                        good_new = p1[st == 1]
+                        good_old = p0[st == 1]
+                    # draw the tracks
+                    for i, (new, old) in enumerate(zip(good_new, good_old)):
+                        a, b = new.ravel()
+                        c, d = old.ravel()
+                        mask = cv2.line(mask, (int(a), int(b)), (int(c), int(d)), color[i].tolist(), 2)
+                        frame = cv2.circle(frame, (int(a), int(b)), 5, color[i].tolist(), -1)
+                    main_frame = cv2.add(frame, mask)
+
+                    backboard_top_left = p1[0][0].astype(np.int64)
+                    backboard_top_right = p1[1][0].astype(np.int64)
+                    backboard_bot_right = p1[2][0].astype(np.int64)
+                    backboard_bot_left = p1[3][0].astype(np.int64)
+                    court_corner_left = p1[4][0].astype(np.int64)
+
+                    # Draw a line around backboard tracking points
+                    cv2.line(main_frame, backboard_top_left, backboard_top_right, (255, 255, 0), 2)
+                    cv2.line(main_frame, backboard_top_right, backboard_bot_right, (255, 255, 0), 2)
+                    cv2.line(main_frame, backboard_bot_right, backboard_bot_left, (255, 255, 0), 2)
+                    cv2.line(main_frame, backboard_bot_left, backboard_top_left, (255, 255, 0), 2)
+
+                    # Points coordinates defined in function: hardcoded_points_selector
+                    homography = cv2.findHomography(p1, points_coordinates_3d, 0, 0)[0]
+                    world_coords = Projection.pixel2world(court_corner_left[0], court_corner_left[1], homography)
+
+                    # Advert world coordinates defined in function: hardcoded_points_selector
+                    advert_bot_left = Projection.world2pixel(advert_world[0], homography)
+                    advert_top_left = Projection.world2pixel(advert_world[1], homography)
+                    advert_top_right = Projection.world2pixel(advert_world[2], homography)
+                    advert_bot_right = Projection.world2pixel(advert_world[3], homography)
+
+                    # Draw temporary rectangle
+                    cv2.line(main_frame, advert_bot_left[:2], advert_top_left[:2], (255, 100, 0), 2)
+                    cv2.line(main_frame, advert_top_left[:2], advert_top_right[:2], (255, 100, 0), 2)
+                    cv2.line(main_frame, advert_top_right[:2], advert_bot_right[:2], (255, 100, 0), 2)
+                    cv2.line(main_frame, advert_bot_right[:2], advert_bot_left[:2], (255, 100, 0), 2)
+                    cv2.line(main_frame, advert_bot_right[:2], advert_top_left[:2], (255, 100, 0), 1)
+                    cv2.line(main_frame, advert_top_right[:2], advert_bot_left[:2], (255, 100, 0), 1)
+
+                    k = cv2.waitKey(5)
+                    if k == 27:  # ESC exits the video
+                        cv2.destroyAllWindows()
+                        input_video.release()
+                        raise SystemExit
+                    if k == 32:  # Space bar pauses the video
+                        cv2.waitKey(0)
+                    # Show the output(s)
+                    show_multiple_output([main_frame], 1)
+                    if SAVE_VIDEO:
+                        videowriter.write(main_frame)
+
+                    # Copy current frame to old frame for optical flow
+                    old_gray = frame_gray.copy()
+                    p0 = good_new.reshape(-1, 1, 2)
+            except Exception as error:
+                traceback.print_exc()
+                print(error)
+            frame_count += 1
+
+        k = cv2.waitKey(0)  # Disable video autoplay each loop
+        if k == 27:  # ESC
+            if SAVE_VIDEO:
+                videowriter.release()
+            cv2.destroyAllWindows()
+            input_video.release()
+            raise SystemExit
