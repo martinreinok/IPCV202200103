@@ -3,13 +3,14 @@ import traceback
 import numpy as np
 
 video_name = "Tokyo_2020_Highlight_2.mp4"
-input_video = cv2.VideoCapture(f"videos/{video_name}")
-advertisement = cv2.imread("euro.png", -1)
+folderOffset = "Python\\"
+input_video = cv2.VideoCapture(folderOffset + video_name)
+advertisement = cv2.imread(folderOffset + "UTLogo.png", -1)
+advertisement = cv2.cvtColor(advertisement, cv2.COLOR_RGBA2RGB)
 advertisement = cv2.resize(advertisement, (1920, 1080))
 
 """ Just some links that might be useful
 https://stackoverflow.com/questions/36921496/how-to-join-png-with-alpha-transparency-in-a-frame-in-realtime/37198079#37198079
-
 """
 
 
@@ -60,22 +61,38 @@ def hardcoded_points_selector(video_name):
     if video_name == "Tokyo_2020_Highlight_1.mp4":
         # First 4 are back board, last is left corner of court
         # NB TODO: the order here should be changed to same according to below
-        points = np.array([[[963, 299]], [[1061, 305]], [[1058, 359]], [[963, 355]], [[677, 460]]], dtype=np.float32)
-        coordinates_3d = np.asarray([[0, 122, 0], [182, 122, 0], [182, 0, 0], [0, 0, 0], [-660, -270, 0]])
-        advert_world_coordinates = [[-550, -260, 1], [-550, -160, 1.1], [-380, -160, 1.1], [-380, -260, 0.97]]
+        # points = np.array([[[963, 299]], [[1061, 305]], [[1058, 359]], [[963, 355]], [[677, 460]]], dtype=np.float32)
+        # coordinates_3d = np.asarray([[0, 122, 0], [182, 122, 0], [182, 0, 0], [0, 0, 0], [-660, -270, 1.05]])
+        # advert_world_coordinates = [[-550, -260, 1], [-550, -160, 1.1], [-380, -160, 1.1], [-380, -260, 1.]]
+
+        # points = np.array([[[963, 299]], [[1061, 305]], [[1058, 359]], [[963, 355]], [[997, 330]], [[1027, 331]]], dtype=np.float32)
+        # coordinates_3d = np.asarray([[0, 0, 0], [182, 0, 0], [182, 122, 0],[0, 122, 0],[61, 46, 0],[121, 46, 0]])
+        points = np.array([[[963, 299]], [[1061, 305]], [[1058, 359]], [[963, 355]]], dtype=np.float32)
+        coordinates_3d = np.asarray([[0, 0, 0], [182, 0, 0], [182, 122, 0],[0, 122, 0]])
+        advert_world_coordinates = [[350, -300, 1.1], [350, -200, 1.2], [500, -200, 1.2], [500, -300, 1.1]]
 
     if video_name == "Tokyo_2020_Highlight_2.mp4":
         # First 4 are back board, last is center left ring of court (on the same line as basket)
         # bot left, top left, top right, bot right, ground
-        points = np.array([[[755, 278]], [[752, 140]], [[968, 132]], [[968, 266]], [[714, 674]]], dtype=np.float32)
-        coordinates_3d = np.asarray([[0, 0, 0], [0, 122, 0], [182, 122, 0], [182, 0, 0], [-50, -300, 0]])
-        advert_world_coordinates = [[350, -300, 1.1], [350, -200, 1.1], [500, -200, 1.06], [500, -300, 1.06]]
+        # points = np.array([[[755, 278]], [[752, 140]], [[968, 132]], [[968, 266]], [[714, 674]]], dtype=np.float32)
+        # coordinates_3d = np.asarray([[0, 0, 0], [0, 122, 0], [182, 122, 0], [182, 0, 0], [-50, -300, 0]])
+        # advert_world_coordinates = [[350, -300, 1.1], [350, -200, 1.25], [500, -200, 1.2], [500, -300, 1.06]]
+        points = np.array([[[755, 278]], [[752, 140]], [[968, 132]], [[968, 266]]], dtype=np.float32)
+        coordinates_3d = np.asarray([[0, 0, 0], [0, 122, 0], [182, 122, 0], [182, 0, 0]])
+        advert_world_coordinates = [[350, -300, 1.1], [350, -200, 1.2], [500, -200, 1.2], [500, -300, 1.1]]
+
+    # if video_name == "Tokyo_2020_Highlight_Easy.mp4":
+    #     # First 4 are back board, last is right corner of court
+    #     # bot left, top left, top right, bot right, ground
+    #     points = np.array([[[833, 149]], [[837, 236]], [[999, 234]], [[1003, 148]], [[1588, 405]]], dtype=np.float32)
+    #     coordinates_3d = np.asarray([[0, 122, 0], [182, 122, 0], [182, 0, 0], [0, 0, 0], [660, -270, 0]])
+    #     advert_world_coordinates = [[350, -300, 1.1], [350, -200, 1.1], [500, -200, 1.2], [500, -300, 1.2]]
 
     return points, coordinates_3d, advert_world_coordinates
 
 
 Projection = Projection()
-SAVE_VIDEO = False
+SAVE_VIDEO = True
 SELECT_POINTS_ONLY = False
 videowriter = None
 
@@ -135,7 +152,7 @@ if __name__ == "__main__":
                     backboard_top_right = p1[1][0].astype(np.int64)
                     backboard_bot_right = p1[2][0].astype(np.int64)
                     backboard_bot_left = p1[3][0].astype(np.int64)
-                    court_corner_left = p1[4][0].astype(np.int64)
+                    # court_corner_left = p1[4][0].astype(np.int64)
 
                     # Draw a line around backboard tracking points
                     cv2.line(main_frame, backboard_top_left, backboard_top_right, (255, 255, 0), 2)
@@ -145,7 +162,7 @@ if __name__ == "__main__":
 
                     # Points coordinates defined in function: hardcoded_points_selector
                     homography = cv2.findHomography(p1, points_coordinates_3d, 0, 0)[0]
-                    world_coords = Projection.pixel2world(court_corner_left[0], court_corner_left[1], homography)
+                    # world_coords = Projection.pixel2world(court_corner_left[0], court_corner_left[1], homography)
 
                     # Advert world coordinates defined in function: hardcoded_points_selector
                     advert_bot_left = Projection.world2pixel(advert_world[0], homography)
@@ -160,6 +177,19 @@ if __name__ == "__main__":
                     cv2.line(main_frame, advert_bot_right[:2], advert_bot_left[:2], (255, 100, 0), 2)
                     cv2.line(main_frame, advert_bot_right[:2], advert_top_left[:2], (255, 100, 0), 1)
                     cv2.line(main_frame, advert_top_right[:2], advert_bot_left[:2], (255, 100, 0), 1)
+                    
+                    # Warp advertisement
+                    aH, aW, c = advertisement.shape
+                    advertPointMatrix = np.float32([[0, 0], [aW, 0], [0, aH], [aW, aH]])
+                    
+                    advertLocationMatrix = np.float32([advert_top_left[:2], advert_top_right[:2], advert_bot_left[:2], advert_bot_right[:2]]) 
+                    perspectiveMatrix = cv2.getPerspectiveTransform(advertPointMatrix, advertLocationMatrix)
+                    advertWarpResult = cv2.warpPerspective(advertisement, perspectiveMatrix, (1920, 1080))
+
+                    grayCol = cv2.cvtColor(advertWarpResult, cv2.COLOR_BGR2GRAY)  # grijswaarde plaatje voor een MASK
+                    advertMask = cv2.inRange(grayCol, 1, 255) 
+                    # main_frame = cv2.add(main_frame, mask)
+                    mainFrame = cv2.add(main_frame, advertWarpResult)
 
                     k = cv2.waitKey(5)
                     if k == 27:  # ESC exits the video
@@ -169,9 +199,9 @@ if __name__ == "__main__":
                     if k == 32:  # Space bar pauses the video
                         cv2.waitKey(0)
                     # Show the output(s)
-                    show_multiple_output([main_frame], 1)
+                    show_multiple_output([mainFrame], 1)
                     if SAVE_VIDEO:
-                        videowriter.write(main_frame)
+                        videowriter.write(mainFrame)
 
                     # Copy current frame to old frame for optical flow
                     old_gray = frame_gray.copy()
