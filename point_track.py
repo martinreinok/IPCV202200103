@@ -64,15 +64,9 @@ def hardcoded_points_selector(video_name):
     if video_name == "Tokyo_2020_Highlight_1.mp4":
         # First 4 are back board, last is left corner of court
         # NB TODO: the order here should be changed to same according to below
-        # points = np.array([[[963, 299]], [[1061, 305]], [[1058, 359]], [[963, 355]], [[677, 460]]], dtype=np.float32)
-        # coordinates_3d = np.asarray([[0, 122, 0], [182, 122, 0], [182, 0, 0], [0, 0, 0], [-660, -270, 1.05]])
-        # advert_world_coordinates = [[-550, -260, 1], [-550, -160, 1.1], [-380, -160, 1.1], [-380, -260, 1.]]
-
-        # points = np.array([[[963, 299]], [[1061, 305]], [[1058, 359]], [[963, 355]], [[997, 330]], [[1027, 331]]], dtype=np.float32)
-        # coordinates_3d = np.asarray([[0, 0, 0], [182, 0, 0], [182, 122, 0],[0, 122, 0],[61, 46, 0],[121, 46, 0]])
-        points = np.array([[[963, 299]], [[1061, 305]], [[1058, 359]], [[963, 355]]], dtype=np.float32)
-        coordinates_3d = np.asarray([[0, 0, 0], [182, 0, 0], [182, 122, 0], [0, 122, 0]])
-        advert_world_coordinates = [[350, -300, 1.1], [350, -200, 1.2], [500, -200, 1.2], [500, -300, 1.1]]
+        points = np.array([[[963, 299]], [[1061, 305]], [[1058, 359]], [[963, 355]], [[677, 460]]], dtype=np.float32)
+        coordinates_3d = np.asarray([[0, 122, 0], [182, 122, 0], [182, 0, 0], [0, 0, 0], [-660, -270, 0]])
+        advert_world_coordinates = [[-550, -260, 1], [-550, -160, 1.1], [-380, -160, 1.1], [-380, -260, 0.97]]
 
     if video_name == "Tokyo_2020_Highlight_2.mp4":
         # First 4 are back board, last is center left ring of court (on the same line as basket)
@@ -81,19 +75,18 @@ def hardcoded_points_selector(video_name):
         coordinates_3d = np.asarray([[0, 0, 0], [0, 122, 0], [182, 122, 0], [182, 0, 0], [-10, -300, 0]])
         advert_world_coordinates = [[350, -300, 1.1], [350, -200, 1.2], [500, -200, 1.2], [500, -300, 1.1]]
 
-    # if video_name == "Tokyo_2020_Highlight_Easy.mp4":
-    #     # First 4 are back board, last is right corner of court
-    #     # bot left, top left, top right, bot right, ground
-    #     points = np.array([[[833, 149]], [[837, 236]], [[999, 234]], [[1003, 148]], [[1588, 405]]], dtype=np.float32)
-    #     coordinates_3d = np.asarray([[0, 122, 0], [182, 122, 0], [182, 0, 0], [0, 0, 0], [660, -270, 0]])
-    #     advert_world_coordinates = [[350, -300, 1.1], [350, -200, 1.1], [500, -200, 1.2], [500, -300, 1.2]]
+    if video_name == "Tokyo_2020_Highlight_3.mp4":
+        # bot left, top left, top right, bot right
+        points = np.array([[[487, 242]], [[479, 98]], [[705, 90]], [[708, 228]], [[225, 646]]], dtype=np.float32)
+        coordinates_3d = np.asarray([[0, 0, 0], [0, 122, 0], [182, 122, 0], [182, 0, 0], [-155, -305, 1]])
+        advert_world_coordinates = [[-155, -305, 1.02], [-155, -200, 1.1], [0, -200, 1.1], [0, -300, 1]]
 
     return points, coordinates_3d, advert_world_coordinates
 
 
 Projection = Projection()
-SAVE_VIDEO = True
-SELECT_POINTS_ONLY = False
+SAVE_VIDEO = False
+SELECT_POINTS_ONLY = 0
 videowriter = None
 
 if SAVE_VIDEO:
