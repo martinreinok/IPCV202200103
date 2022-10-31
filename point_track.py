@@ -1,11 +1,14 @@
 import cv2
 import traceback
 import numpy as np
+import os
+
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 video_name = "Tokyo_2020_Highlight_2.mp4"
-folderOffset = "Python\\"
+folderOffset = "videos\\"
 input_video = cv2.VideoCapture(folderOffset + video_name)
-advertisement = cv2.imread(folderOffset + "UTLogo.png", -1)
+advertisement = cv2.imread("UTLogo.png", -1)
 advertisement = cv2.cvtColor(advertisement, cv2.COLOR_RGBA2RGB)
 advertisement = cv2.resize(advertisement, (1920, 1080))
 
