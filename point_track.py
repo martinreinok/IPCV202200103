@@ -71,17 +71,14 @@ def hardcoded_points_selector(video_name):
         # points = np.array([[[963, 299]], [[1061, 305]], [[1058, 359]], [[963, 355]], [[997, 330]], [[1027, 331]]], dtype=np.float32)
         # coordinates_3d = np.asarray([[0, 0, 0], [182, 0, 0], [182, 122, 0],[0, 122, 0],[61, 46, 0],[121, 46, 0]])
         points = np.array([[[963, 299]], [[1061, 305]], [[1058, 359]], [[963, 355]]], dtype=np.float32)
-        coordinates_3d = np.asarray([[0, 0, 0], [182, 0, 0], [182, 122, 0],[0, 122, 0]])
+        coordinates_3d = np.asarray([[0, 0, 0], [182, 0, 0], [182, 122, 0], [0, 122, 0]])
         advert_world_coordinates = [[350, -300, 1.1], [350, -200, 1.2], [500, -200, 1.2], [500, -300, 1.1]]
 
     if video_name == "Tokyo_2020_Highlight_2.mp4":
         # First 4 are back board, last is center left ring of court (on the same line as basket)
         # bot left, top left, top right, bot right, ground
-        # points = np.array([[[755, 278]], [[752, 140]], [[968, 132]], [[968, 266]], [[714, 674]]], dtype=np.float32)
-        # coordinates_3d = np.asarray([[0, 0, 0], [0, 122, 0], [182, 122, 0], [182, 0, 0], [-50, -300, 0]])
-        # advert_world_coordinates = [[350, -300, 1.1], [350, -200, 1.25], [500, -200, 1.2], [500, -300, 1.06]]
-        points = np.array([[[755, 278]], [[752, 140]], [[968, 132]], [[968, 266]]], dtype=np.float32)
-        coordinates_3d = np.asarray([[0, 0, 0], [0, 122, 0], [182, 122, 0], [182, 0, 0]])
+        points = np.array([[[755, 278]], [[752, 140]], [[968, 132]], [[968, 266]], [[713, 675]]], dtype=np.float32)
+        coordinates_3d = np.asarray([[0, 0, 0], [0, 122, 0], [182, 122, 0], [182, 0, 0], [-10, -300, 0]])
         advert_world_coordinates = [[350, -300, 1.1], [350, -200, 1.2], [500, -200, 1.2], [500, -300, 1.1]]
 
     # if video_name == "Tokyo_2020_Highlight_Easy.mp4":
@@ -180,17 +177,18 @@ if __name__ == "__main__":
                     cv2.line(main_frame, advert_bot_right[:2], advert_bot_left[:2], (255, 100, 0), 2)
                     cv2.line(main_frame, advert_bot_right[:2], advert_top_left[:2], (255, 100, 0), 1)
                     cv2.line(main_frame, advert_top_right[:2], advert_bot_left[:2], (255, 100, 0), 1)
-                    
+
                     # Warp advertisement
                     aH, aW, c = advertisement.shape
                     advertPointMatrix = np.float32([[0, 0], [aW, 0], [0, aH], [aW, aH]])
-                    
-                    advertLocationMatrix = np.float32([advert_top_left[:2], advert_top_right[:2], advert_bot_left[:2], advert_bot_right[:2]]) 
+
+                    advertLocationMatrix = np.float32(
+                        [advert_top_left[:2], advert_top_right[:2], advert_bot_left[:2], advert_bot_right[:2]])
                     perspectiveMatrix = cv2.getPerspectiveTransform(advertPointMatrix, advertLocationMatrix)
                     advertWarpResult = cv2.warpPerspective(advertisement, perspectiveMatrix, (1920, 1080))
 
                     grayCol = cv2.cvtColor(advertWarpResult, cv2.COLOR_BGR2GRAY)  # grijswaarde plaatje voor een MASK
-                    advertMask = cv2.inRange(grayCol, 1, 255) 
+                    advertMask = cv2.inRange(grayCol, 1, 255)
                     # main_frame = cv2.add(main_frame, mask)
                     mainFrame = cv2.add(main_frame, advertWarpResult)
 
