@@ -1,5 +1,8 @@
 import cv2
 import numpy as np
+import os
+
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # Program modifiers
 Trackbars = True
@@ -43,6 +46,14 @@ class Advert:
                 f"value_high = {self.trackbar_value().value_high}\n"
                 f"canny_1 = {self.trackbar_value().canny_1}\n"
                 f"canny_2 = {self.trackbar_value().canny_2}\n"
+                f"morph_1 = {self.trackbar_value().morph_1}\n"
+                f"morph_2 = {self.trackbar_value().morph_1}\n"
+                f"kerdialate_1 = {self.trackbar_value().kerdialate_1}\n"
+                f"kerdialate_2 = {self.trackbar_value().kerdialate_2}\n"
+                f"dialateItt = {self.trackbar_value().dialateItt}\n"
+                f"kererode_1 = {self.trackbar_value().kererode_1}\n"
+                f"kererode_2 = {self.trackbar_value().kererode_1}\n"
+                f"erodeItt = {self.trackbar_value().erodeItt}\n"
                 f"corner_1 = {self.trackbar_value().corner_1}\n"
                 f"corner_2 = {self.trackbar_value().corner_2}\n"
                 f"line_rho = {self.trackbar_value().rho}\n"
@@ -81,14 +92,26 @@ class Advert:
         # CANNY
         cv2.createTrackbar("canny_1", "Trackbars", memory[6], 500, self.nothing)
         cv2.createTrackbar("canny_2", "Trackbars", memory[7], 500, self.nothing)
+        # Morph
+        cv2.createTrackbar("morph_1", "Trackbars", memory[8], 100, self.nothing)
+        cv2.createTrackbar("morph_2", "Trackbars", memory[9], 100, self.nothing)
+        cv2.createTrackbar("kerdialate_1", "Trackbars", memory[10], 50, self.nothing)
+        cv2.createTrackbar("kerdialate_2", "Trackbars", memory[11], 50, self.nothing)
+        cv2.createTrackbar("dialateItt", "Trackbars", memory[12], 50, self.nothing)
+        cv2.createTrackbar("kererode_1", "Trackbars", memory[13], 50, self.nothing)
+        cv2.createTrackbar("kererode_2", "Trackbars", memory[14], 50, self.nothing)
+        cv2.createTrackbar("erodeItt", "Trackbars", memory[15], 50, self.nothing)
         # THRESHOLD
-        cv2.createTrackbar("corner_1", "Trackbars", memory[8], 100, self.nothing)
-        cv2.createTrackbar("corner_2", "Trackbars", memory[9], 500, self.nothing)
+        cv2.createTrackbar("corner_1", "Trackbars", memory[16], 100, self.nothing)
+        cv2.createTrackbar("corner_2", "Trackbars", memory[17], 500, self.nothing)
+        cv2.createTrackbar("harris_bSize", "Trackbars", 1, 25, self.nothing)
+        cv2.createTrackbar("harris_kSize", "Trackbars", 7, 10, self.nothing)
+        cv2.createTrackbar("harris_k", "Trackbars", 1, 1000, self.nothing)
         # LINE DETECTION
-        cv2.createTrackbar("line_rho", "Trackbars", memory[10], 179, self.nothing)
-        cv2.createTrackbar("line_threshold", "Trackbars", memory[11], 1000, self.nothing)
-        cv2.createTrackbar("line_min", "Trackbars", memory[12], 1000, self.nothing)
-        cv2.createTrackbar("line_gap", "Trackbars", memory[13], 1000, self.nothing)
+        cv2.createTrackbar("line_rho", "Trackbars", memory[18], 179, self.nothing)
+        cv2.createTrackbar("line_threshold", "Trackbars", memory[19], 1000, self.nothing)
+        cv2.createTrackbar("line_min", "Trackbars", memory[20], 1000, self.nothing)
+        cv2.createTrackbar("line_gap", "Trackbars", memory[21], 10000, self.nothing)
 
     def trackbar_value(self):
         class Values:
@@ -103,9 +126,21 @@ class Advert:
                 # Canny
                 canny_1 = cv2.getTrackbarPos("canny_1", "Trackbars")
                 canny_2 = cv2.getTrackbarPos("canny_2", "Trackbars")
+                #morph operators
+                morph_1 = cv2.getTrackbarPos("morph_1", "Trackbars")
+                morph_2 = cv2.getTrackbarPos("morph_2", "Trackbars")
+                kerdialate_1 = cv2.getTrackbarPos("kerdialate_1", "Trackbars")
+                kerdialate_2 = cv2.getTrackbarPos("kerdialate_2", "Trackbars")
+                dialateItt = cv2.getTrackbarPos("dialateItt", "Trackbars")
+                kererode_1 = cv2.getTrackbarPos("kererode_1", "Trackbars")
+                kererode_2 = cv2.getTrackbarPos("kererode_2", "Trackbars")
+                erodeItt = cv2.getTrackbarPos("erodeItt", "Trackbars")
                 # Corner
                 corner_1 = cv2.getTrackbarPos("corner_1", "Trackbars")
                 corner_2 = cv2.getTrackbarPos("corner_2", "Trackbars")
+                harris_bSize = cv2.getTrackbarPos("harris_bSize", "Trackbars")
+                harris_kSize = cv2.getTrackbarPos("harris_kSize", "Trackbars")
+                harris_k = cv2.getTrackbarPos("harris_k", "Trackbars")
                 # Lines
                 rho = cv2.getTrackbarPos("line_rho", "Trackbars")
                 threshold = cv2.getTrackbarPos("line_threshold", "Trackbars")
@@ -113,23 +148,32 @@ class Advert:
                 max_line_gap = cv2.getTrackbarPos("line_gap", "Trackbars")
             else:
                 # Hue
-                hue_low = 169  # hue low
-                hue_high = 179  # hue high
-                sat_low = 167  # saturation low
-                sat_high = 255  # saturation high
+                hue_low = 170  # hue low
+                hue_high = 175  # hue high
+                sat_low = 150  # saturation low
+                sat_high = 235  # saturation high
                 value_low = 91  # value low
                 value_high = 178  # value high
                 # Canny
-                canny_1 = 169  # canny 1
-                canny_2 = 179  # canny 2
+                canny_1 = 58  # canny 1
+                canny_2 = 109  # canny 2
+                # Morph
+                morph_1 = 50
+                morph_1 = 50
+                kerdialate_1 = 1
+                kerdialate_2 = 1
+                dialateItt = 1
+                kererode_1 = 1
+                kererode_2 = 1
+                erodeItt = 1
                 # Corner
-                corner_1 = 0  # corner 1
-                corner_2 = 0  # corner 2
+                corner_1 = 49  # corner 1
+                corner_2 = 291 # corner 2
                 # Lines
-                rho = 1  # distance resolution in pixels of the Hough grid
-                threshold = 15  # minimum number of votes (intersections in Hough grid cell)
-                min_line_length = 50  # minimum number of pixels making up a line
-                max_line_gap = 20  # maximum gap in pixels between connectable line segments
+                rho = 97  # distance resolution in pixels of the Hough grid
+                threshold = 85  # minimum number of votes (intersections in Hough grid cell)
+                min_line_length = 0  # minimum number of pixels making up a line
+                max_line_gap = 109  # maximum gap in pixels between connectable line segments
         return Values
 
     def detect_lines(self, canny_edge_detection):
@@ -140,7 +184,7 @@ class Advert:
         # Output "lines" is an array containing endpoints of detected line segments
         lines = None
         try:
-            lines = cv2.HoughLinesP(canny_edge_detection, self.trackbar_value().rho, theta, self.trackbar_value().threshold,
+            lines = cv2.HoughLinesP(canny_edge_detection, self.trackbar_value().rho/10, theta, self.trackbar_value().threshold,
                                     np.array([]), self.trackbar_value().min_line_length, self.trackbar_value().max_line_gap)
             for line in lines:
                 for x1, y1, x2, y2 in line:
@@ -164,7 +208,7 @@ class Advert:
                                 (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1))
                         x = int(x1 + u * (x2 - x1))
                         y = int(y1 + u * (y2 - y1))
-                        cv2.circle(output_image, (x, y), 4, (255, 255, 0), 3)
+                        cv2.circle(output_image, (x, y), 4, (255, 0, 0), 3)
         except Exception as e:
             print(e)
             pass
@@ -176,7 +220,7 @@ video = None
 gaussian_blur = (11, 11)
 
 if __name__ == "__main__":
-    video = Video.read("Tokyo_2020_Highlight_1.mp4")
+    video = Video.read("videos\Tennis_video_1.mp4")
     if Trackbars:
         Advert.trackbars()
     while video.isOpened():
@@ -187,18 +231,40 @@ if __name__ == "__main__":
 
             hsv_frame = Advert.convert_hsv(frame)
             gray_frame = cv2.cvtColor(hsv_frame, cv2.COLOR_BGR2GRAY)
-            feature_params = dict(maxCorners=100, qualityLevel=0.3, minDistance=7, blockSize=7)
-            p0 = cv2.goodFeaturesToTrack(gray_frame, mask=None, **feature_params)
-            gray_blur_frame = cv2.GaussianBlur(gray_frame, gaussian_blur, 0)
-            # gray_blur_frame_morph = cv2.morphologyEx(gray_blur_frame, cv2.MORPH_GRADIENT, np.ones((1, 1)))
-            # canny_edges = cv2.Canny(gray_blur_frame, Advert.trackbar_value().canny_1, Advert.trackbar_value().canny_2)
-            # canny_morph = cv2.morphologyEx(canny_edges, cv2.MORPH_CLOSE,  cv2.getStructuringElement(cv2.MORPH_RECT, (30, 30)))
-            # contours, hierarchy = cv2.findContours(canny_morph, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            # cv2.drawContours(black_screen, contours, -1, (255, 0, 0), -1)
 
-            # detected_lines, lines = Advert.detect_lines(canny_edges)
-            # Advert.draw_line_intersections(lines, frame)
-            Video.show_multiple_output([frame, hsv_frame], 2)
+            # contours, hierarchy = cv2.findContours(canny_morphErode, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            contours, hierarchy = cv2.findContours(gray_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            contourSizes = [(cv2.contourArea(cnt), cnt) for cnt in contours]
+            maxContour = max(contourSizes, key=lambda x: x[0])[1]
+            cv2.drawContours(black_screen, [maxContour], -1, (255, 0, 0), -1 )
+            contourKernal = np.ones((5,5))
+            maxContourDialate = cv2.dilate(black_screen, contourKernal, iterations= 6)
+
+            ROIimg = cv2.bitwise_and(gray_frame, maxContourDialate)
+
+
+            feature_params = dict(maxCorners=100, qualityLevel=0.3, minDistance=7, blockSize=7)
+            p0 = cv2.goodFeaturesToTrack(ROIimg, mask=None, **feature_params)
+            gray_blur_frame = cv2.GaussianBlur(ROIimg, gaussian_blur, 0)
+            gray_blur_frame_morph = cv2.morphologyEx(ROIimg, cv2.MORPH_GRADIENT, np.ones((1, 1)))
+            hsvmorph = cv2.morphologyEx(ROIimg, cv2.MORPH_CLOSE,  cv2.getStructuringElement(cv2.MORPH_RECT, (Advert.trackbar_value().morph_1, Advert.trackbar_value().morph_2)))
+            canny_edges = cv2.Canny(hsvmorph, Advert.trackbar_value().canny_1, Advert.trackbar_value().canny_2)
+            
+            kernelDial = np.ones((Advert.trackbar_value().kerdialate_1, Advert.trackbar_value().kerdialate_2))
+            canny_morphDial = cv2.dilate(canny_edges, kernelDial, iterations = Advert.trackbar_value().dialateItt)
+
+            kernelErode = np.ones((Advert.trackbar_value().kererode_1, Advert.trackbar_value().kererode_2))
+            canny_morphErode = cv2.erode(canny_morphDial,kernelErode, iterations = Advert.trackbar_value().erodeItt)
+
+            detected_lines, lines = Advert.detect_lines(canny_morphErode)
+            print(lines)
+
+            corners = cv2.cornerHarris(detected_lines,Advert.trackbar_value().harris_bSize,Advert.trackbar_value().harris_kSize,Advert.trackbar_value().harris_k / 1000)
+            cornersDial = cv2.dilate(corners, np.zeros((7,7),np.uint8), iterations=2)
+            frame[cornersDial>0.01*cornersDial.max()]=[0,0,255]
+
+            Advert.draw_line_intersections(lines, frame)
+            Video.show_multiple_output([frame, hsv_frame, detected_lines, canny_edges, canny_morphErode, ROIimg], 1)
             # cv2.waitKey(0)
         else:
             video.set(cv2.CAP_PROP_POS_FRAMES, 0)
