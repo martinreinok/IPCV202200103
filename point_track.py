@@ -5,7 +5,7 @@ import os
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-video_name = "Tokyo_2020_Highlight_2.mp4"
+video_name = "tennis_1.mp4"
 folderOffset = "videos\\"
 input_video = cv2.VideoCapture(folderOffset + video_name)
 advertisement = cv2.imread("UTLogo.png", -1)
@@ -81,6 +81,15 @@ def hardcoded_points_selector(video_name):
         coordinates_3d = np.asarray([[0, 0, 0], [0, 122, 0], [182, 122, 0], [182, 0, 0], [-155, -305, 1]])
         advert_world_coordinates = [[-155, -305, 1.02], [-155, -200, 1.1], [0, -200, 1.1], [0, -300, 1]]
 
+    if video_name == "tennis_1.mp4":
+        # Reference to 'tennis_1_points.png'
+        points = np.array([[[1640, 823]], [[1469, 817]], [[628, 271]], [[708, 272]],
+                           [[1484, 454]], [[441, 452]]], dtype=np.float32)
+        # X, Y, Z (METERS)
+        coordinates_3d = np.array([[[0, 0, 0], [1.372, 0, 0], [10.973, 23.77, 0], [9.601, 23.77, 0],
+                                    [-1, 23.77 / 2, 0], [11.973, 23.77 / 2, 0]]], np.float32)
+        advert_world_coordinates = [[0, 0, 1], [0, 1, 1], [1, 1, 1], [1, 0, 1]]
+
     return points, coordinates_3d, advert_world_coordinates
 
 
@@ -88,6 +97,11 @@ Projection = Projection()
 SAVE_VIDEO = False
 SELECT_POINTS_ONLY = 0
 videowriter = None
+
+
+def nothing(x):
+    pass
+
 
 if SAVE_VIDEO:
     videowriter = cv2.VideoWriter("output.avi", cv2.VideoWriter_fourcc(*"XVID"), 30, (1920, 1080))
@@ -98,7 +112,7 @@ if __name__ == "__main__":
         input_video.set(cv2.CAP_PROP_POS_FRAMES, 0)
         # Initialize optical flow parameters
         good_new, good_old = None, None
-        lucas_kanade = dict(winSize=(15, 15), maxLevel=3,
+        lucas_kanade = dict(winSize=(15, 15), maxLevel=2,
                             criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
         color = np.random.randint(0, 255, (100, 3))
         # Grab first frame for optical flow
@@ -108,6 +122,13 @@ if __name__ == "__main__":
             mask = np.zeros_like(old_frame)
             # Hardcoded initial points (double-click on frame to print coordinates)
             p0, points_coordinates_3d, advert_world = hardcoded_points_selector(video_name)
+
+            # TODO: !? Unable to automate this, can't append to numpy array...
+            image_points = np.array([[p0[0][0], p0[1][0], p0[2][0], p0[3][0], p0[4][0], p0[5][0]]], np.float32)
+
+            _, CameraMatrix, dist, _, _ = cv2.calibrateCamera(points_coordinates_3d, image_points, old_gray.shape[::-1],
+                                                              None, None)
+            print(CameraMatrix)
         else:
             print("Could not open video")
             raise SystemExit
@@ -148,15 +169,43 @@ if __name__ == "__main__":
                     # court_corner_left = p1[4][0].astype(np.int64)
 
                     # Draw a line around backboard tracking points
-                    cv2.line(main_frame, backboard_top_left, backboard_top_right, (255, 255, 0), 2)
-                    cv2.line(main_frame, backboard_top_right, backboard_bot_right, (255, 255, 0), 2)
-                    cv2.line(main_frame, backboard_bot_right, backboard_bot_left, (255, 255, 0), 2)
-                    cv2.line(main_frame, backboard_bot_left, backboard_top_left, (255, 255, 0), 2)
+                    # cv2.line(main_frame, backboard_top_left, backboard_top_right, (255, 255, 0), 2)
+                    # cv2.line(main_frame, backboard_top_right, backboard_bot_right, (255, 255, 0), 2)
+                    # cv2.line(main_frame, backboard_bot_right, backboard_bot_left, (255, 255, 0), 2)
+                    # cv2.line(main_frame, backboard_bot_left, backboard_top_left, (255, 255, 0), 2)
+                    image_points = np.array([[p1[0][0], p1[1][0], p1[2][0], p1[3][0], p1[4][0], p1[5][0]]], np.float32)
 
+                    advertisementPosition = np.array([[[0, 0, 0],
+                                                       [11, 0, 0],
+                                                       [0, 24, 0],
+                                                       [0, 0, -1]]], np.float32)
+                    _, rotation_vec, translation_vec = cv2.solvePnP(points_coordinates_3d, image_points, CameraMatrix, None)
+                    imgpts, jac = cv2.projectPoints(advertisementPosition, rotation_vec, translation_vec, CameraMatrix, None)
+
+                    cv2.circle(main_frame, (int(imgpts[0][0][0]), int(imgpts[0][0][1])), 15, (255, 255, 255), -1)
+                    cv2.circle(main_frame, (int(imgpts[1][0][0]), int(imgpts[1][0][1])), 15, (255, 0, 0), -1)
+                    cv2.circle(main_frame, (int(imgpts[2][0][0]), int(imgpts[2][0][1])), 15, (0, 255, 0), -1)
+                    cv2.circle(main_frame, (int(imgpts[3][0][0]), int(imgpts[3][0][1])), 15, (0, 0, 255), -1)
+
+                    cv2.line(main_frame, (int(imgpts[0][0][0]), int(imgpts[0][0][1])), (int(imgpts[1][0][0]), int(imgpts[1][0][1])), (255, 100, 0), 2)
+                    cv2.line(main_frame, (int(imgpts[0][0][0]), int(imgpts[0][0][1])), (int(imgpts[2][0][0]), int(imgpts[2][0][1])), (255, 100, 0), 2)
+                    cv2.line(main_frame, (int(imgpts[0][0][0]), int(imgpts[0][0][1])), (int(imgpts[3][0][0]), int(imgpts[3][0][1])), (255, 100, 0), 2)
+                    # cv2.line(main_frame, (int(imgpts[0][0][0]), int(imgpts[0][0][1])), (int(imgpts[0][0][0]), int(imgpts[0][0][1])), (255, 100, 0), 2)
+
+                    # cv2.line(main_frame, advert_bot_right[:2], advert_top_left[:2], (255, 100, 0), 1)
+                    # cv2.line(main_frame, advert_top_right[:2], (int(imgpts[0][0][0]), int(imgpts[0][0][1])), (255, 100, 0), 1)
+                    """
+                    ret, camMTX, dist, rvecs, tvecs = cv2.calibrateCamera(points_coordinates_3d, p0,
+                                                                          frame_gray.shape[::-1],
+                                                                          flags=cv2.CALIB_USE_INTRINSIC_GUESS,
+                                                                          distCoeffs=None, cameraMatrix=firstCamMatrix)
+                    
+                    """
                     # Points coordinates defined in function: hardcoded_points_selector
-                    homography = cv2.findHomography(p1, points_coordinates_3d, 0, 0)[0]
+                    # homography = cv2.findHomography(p1, points_coordinates_3d, 0, 0)[0]
                     # world_coords = Projection.pixel2world(court_corner_left[0], court_corner_left[1], homography)
 
+                    '''
                     # Advert world coordinates defined in function: hardcoded_points_selector
                     advert_bot_left = Projection.world2pixel(advert_world[0], homography)
                     advert_top_left = Projection.world2pixel(advert_world[1], homography)
@@ -170,8 +219,9 @@ if __name__ == "__main__":
                     cv2.line(main_frame, advert_bot_right[:2], advert_bot_left[:2], (255, 100, 0), 2)
                     cv2.line(main_frame, advert_bot_right[:2], advert_top_left[:2], (255, 100, 0), 1)
                     cv2.line(main_frame, advert_top_right[:2], advert_bot_left[:2], (255, 100, 0), 1)
-
+                    '''
                     # Warp advertisement
+                    """
                     aH, aW, c = advertisement.shape
                     advertPointMatrix = np.float32([[0, 0], [aW, 0], [0, aH], [aW, aH]])
 
@@ -184,8 +234,8 @@ if __name__ == "__main__":
                     advertMask = cv2.inRange(grayCol, 1, 255)
                     # main_frame = cv2.add(main_frame, mask)
                     mainFrame = cv2.add(main_frame, advertWarpResult)
-
-                    k = cv2.waitKey(5)
+                    """
+                    k = cv2.waitKey(50)
                     if k == 27:  # ESC exits the video
                         cv2.destroyAllWindows()
                         input_video.release()
@@ -193,9 +243,9 @@ if __name__ == "__main__":
                     if k == 32:  # Space bar pauses the video
                         cv2.waitKey(0)
                     # Show the output(s)
-                    show_multiple_output([mainFrame], 1)
+                    show_multiple_output([main_frame], 2)
                     if SAVE_VIDEO:
-                        videowriter.write(mainFrame)
+                        videowriter.write(main_frame)
 
                     # Copy current frame to old frame for optical flow
                     old_gray = frame_gray.copy()
