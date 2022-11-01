@@ -1,8 +1,14 @@
+from cmath import atan
 import cv2
 import numpy as np
 import os
+from math import atan2, degrees
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+advertisement = cv2.imread("UTLogo.png", -1)
+advertisement = cv2.cvtColor(advertisement, cv2.COLOR_RGBA2RGB)
+advertisement = cv2.resize(advertisement, (1920, 1080))
 
 # Program modifiers
 Trackbars = True
@@ -111,7 +117,7 @@ class Advert:
         cv2.createTrackbar("line_rho", "Trackbars", memory[18], 179, self.nothing)
         cv2.createTrackbar("line_threshold", "Trackbars", memory[19], 1000, self.nothing)
         cv2.createTrackbar("line_min", "Trackbars", memory[20], 1000, self.nothing)
-        cv2.createTrackbar("line_gap", "Trackbars", memory[21], 10000, self.nothing)
+        cv2.createTrackbar("line_gap", "Trackbars", memory[21], 500, self.nothing)
 
     def trackbar_value(self):
         class Values:
@@ -184,8 +190,7 @@ class Advert:
         # Output "lines" is an array containing endpoints of detected line segments
         lines = None
         try:
-            lines = cv2.HoughLinesP(canny_edge_detection, self.trackbar_value().rho/10, theta, self.trackbar_value().threshold,
-                                    np.array([]), self.trackbar_value().min_line_length, self.trackbar_value().max_line_gap)
+            lines = cv2.HoughLinesP(canny_edge_detection,self.trackbar_value().rho,np.pi/180,threshold=self.trackbar_value().threshold,minLineLength=self.trackbar_value().min_line_length,maxLineGap=self.trackbar_value().max_line_gap)
             for line in lines:
                 for x1, y1, x2, y2 in line:
                     cv2.line(line_image, (x1, y1), (x2, y2), (255, 0, 0), 5)
@@ -195,23 +200,84 @@ class Advert:
             pass
         return line_image, lines
 
+    # def draw_line_intersections(self, lines, output_image):
+    #     try:
+    #         for line1 in lines:
+    #             x1, y1, x2, y2 = line1[0]
+    #             for line2 in lines:
+    #                 x3, y3, x4, y4 = line2[0]
+    #                 if x1 == x3 and y1 == y3:
+    #                     pass
+    #                 else:
+    #                     u = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / (
+    #                             (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1))
+    #                     x = int(x1 + u * (x2 - x1))
+    #                     y = int(y1 + u * (y2 - y1))
+    #                     cv2.circle(output_image, (x, y), 4, (255, 0, 0), 3)
+    #     except Exception as e:
+    #         print(e)
+    #         pass
+
     def draw_line_intersections(self, lines, output_image):
         try:
             for line1 in lines:
                 x1, y1, x2, y2 = line1[0]
+                # print("line 1: ", x1 , y1, x2, y2)
                 for line2 in lines:
                     x3, y3, x4, y4 = line2[0]
+                    # print("line 2: ", x3 , y4, x4, y4)
                     if x1 == x3 and y1 == y3:
                         pass
+
+                    elif(abs(degrees(atan2((y2 - y1),(x2 - x1)) - atan2((y4 - y3),(x4 - x3)))) >= 50):
+                        a1 = (y2 - y1) / (x2 - x1)
+                        a2 = (y4 - y3) / (x4 - x3)
+
+                        b1 = y1 - (a1 * x1)
+                        b2 = y3 - (a2 * x3)
+
+                        x = int(abs((b2 - b1) / (a1 - a2)))
+                        y = int(abs((a1 * x) + b1))
+                        cv2.circle(output_image, (x, y), 4, (255, 0, 0), 4)
                     else:
-                        u = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / (
-                                (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1))
-                        x = int(x1 + u * (x2 - x1))
-                        y = int(y1 + u * (y2 - y1))
-                        cv2.circle(output_image, (x, y), 4, (255, 0, 0), 3)
+                        pass   
+            
         except Exception as e:
             print(e)
             pass
+
+    def getContourPoints(self, img):
+        contours, hierarchy = cv2.findContours(img, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        i = 0
+        points = [0,0]
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            peri = cv2.arcLength(cnt, True)
+            if area > 40000 and area < 200000:
+                approx = cv2.approxPolyDP(cnt, 0.01*peri, True)
+                objCor = len(approx)
+                if objCor == 4:
+                    cv2.drawContours(frame, cnt, -1, (0, 255, 255), 10)
+                    cnr1 = approx[0][0] 
+                    cnr2 = approx[1][0] 
+                    cnr3 = approx[2][0] 
+                    cnr4 = approx[3][0] 
+                    cv2.circle(frame, (cnr1[0], cnr1[1]), 15, (255, 0, 0), -1)
+                    cv2.circle(frame, (cnr2[0], cnr2[1]), 15, (0, 255, 0), -1)
+                    cv2.circle(frame, (cnr3[0], cnr3[1]), 15, (0, 0, 255), -1) 
+                    cv2.circle(frame, (cnr4[0], cnr4[1]), 15, (255, 255, 255), -1)
+                    points[i] = (cnr1, cnr2, cnr3, cnr4)
+                    i += 1
+        return(points)
+
+
+    def world2pixel(self, world_coordinates, homography_matrix):
+        world_point = np.array(np.dot(np.linalg.inv(homography_matrix), world_coordinates))
+        print(world_point)
+        scalar = world_point[2]
+        x_pixel = world_point[0] / scalar
+        y_pixel = world_point[1] / scalar
+        return int(x_pixel), int(y_pixel), scalar
 
 
 Video = Video()
@@ -228,26 +294,30 @@ if __name__ == "__main__":
 
         if ret:
             black_screen = cv2.cvtColor(np.copy(frame) * 0, cv2.COLOR_BGR2GRAY)  # creating a blank to draw anything
+            gray_img = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
             hsv_frame = Advert.convert_hsv(frame)
             gray_frame = cv2.cvtColor(hsv_frame, cv2.COLOR_BGR2GRAY)
 
             # contours, hierarchy = cv2.findContours(canny_morphErode, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            contours, hierarchy = cv2.findContours(gray_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            contourSizes = [(cv2.contourArea(cnt), cnt) for cnt in contours]
+            contour, hierarchy = cv2.findContours(gray_frame, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            contourSizes = [(cv2.contourArea(cnt), cnt) for cnt in contour]
             maxContour = max(contourSizes, key=lambda x: x[0])[1]
             cv2.drawContours(black_screen, [maxContour], -1, (255, 0, 0), -1 )
-            contourKernal = np.ones((5,5))
+            contourKernal = np.ones((11,11))
             maxContourDialate = cv2.dilate(black_screen, contourKernal, iterations= 6)
 
-            ROIimg = cv2.bitwise_and(gray_frame, maxContourDialate)
+            ROIimg = cv2.bitwise_and(frame, frame, mask=maxContourDialate)
+            ROIhsv = Advert.convert_hsv(ROIimg)
+            ROIgray = cv2.cvtColor(ROIhsv, cv2.COLOR_BGR2GRAY)
 
 
-            feature_params = dict(maxCorners=100, qualityLevel=0.3, minDistance=7, blockSize=7)
-            p0 = cv2.goodFeaturesToTrack(ROIimg, mask=None, **feature_params)
-            gray_blur_frame = cv2.GaussianBlur(ROIimg, gaussian_blur, 0)
-            gray_blur_frame_morph = cv2.morphologyEx(ROIimg, cv2.MORPH_GRADIENT, np.ones((1, 1)))
-            hsvmorph = cv2.morphologyEx(ROIimg, cv2.MORPH_CLOSE,  cv2.getStructuringElement(cv2.MORPH_RECT, (Advert.trackbar_value().morph_1, Advert.trackbar_value().morph_2)))
+           
+
+           
+            gray_blur_frame = cv2.GaussianBlur(ROIgray, gaussian_blur, 11)
+            # gray_blur_frame_morph = cv2.morphologyEx(ROIgray, cv2.MORPH_GRADIENT, np.ones((1, 1)))
+            hsvmorph = cv2.morphologyEx(gray_blur_frame, cv2.MORPH_CLOSE,  cv2.getStructuringElement(cv2.MORPH_RECT, (Advert.trackbar_value().morph_1, Advert.trackbar_value().morph_2)))
             canny_edges = cv2.Canny(hsvmorph, Advert.trackbar_value().canny_1, Advert.trackbar_value().canny_2)
             
             kernelDial = np.ones((Advert.trackbar_value().kerdialate_1, Advert.trackbar_value().kerdialate_2))
@@ -257,14 +327,58 @@ if __name__ == "__main__":
             canny_morphErode = cv2.erode(canny_morphDial,kernelErode, iterations = Advert.trackbar_value().erodeItt)
 
             detected_lines, lines = Advert.detect_lines(canny_morphErode)
-            print(lines)
 
-            corners = cv2.cornerHarris(detected_lines,Advert.trackbar_value().harris_bSize,Advert.trackbar_value().harris_kSize,Advert.trackbar_value().harris_k / 1000)
-            cornersDial = cv2.dilate(corners, np.zeros((7,7),np.uint8), iterations=2)
-            frame[cornersDial>0.01*cornersDial.max()]=[0,0,255]
+            feature_params = dict(maxCorners=120, qualityLevel=0.001, minDistance=1, blockSize=3)
+            lk_params = dict( winSize  = (15, 15),
+                  maxLevel = 2,
+                  criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
-            Advert.draw_line_intersections(lines, frame)
-            Video.show_multiple_output([frame, hsv_frame, detected_lines, canny_edges, canny_morphErode, ROIimg], 1)
+            pointsCourt = Advert.getContourPoints(detected_lines)  
+
+            # p_lbb = pointsCourt[0][0]
+            # p_ltb = pointsCourt[0][1]
+            # p_rtb = pointsCourt[0][2]
+            # p_rbb = pointsCourt[0][3]
+            
+            # p_lbt = pointsCourt[1][0]
+            # p_ltt = pointsCourt[1][1]
+            # p_rtt = pointsCourt[1][2]
+            # p_rbt = pointsCourt[1][3]
+
+            # p0 = np.array([p_lbb, p_ltb, p_rtb, p_rbb, p_lbt, p_ltt, p_rtt, p_rbt])
+            # # print(p0)
+            # coordinates_3d = np.asarray([[1372, 0, 0], [1372, 5485, 0], [9601, 5485, 0],[9601, 0, 0], [1372, 5485, 0], [1372, 11885, 0], [9601, 11885, 0],[9601, 5485, 0]])
+            # advert_world_coordinates = [[0, 0, 0], [0, 200, 0], [200, 200, 0], [200, 0, 0]]
+
+            # homography = cv2.findHomography(p0, coordinates_3d, 0, 0)[0]
+
+            # advert_bot_left = Advert.world2pixel(advert_world_coordinates[0], homography)
+            # advert_top_left = Advert.world2pixel(advert_world_coordinates[1], homography)
+            # advert_top_right = Advert.world2pixel(advert_world_coordinates[2], homography)
+            # advert_bot_right = Advert.world2pixel(advert_world_coordinates[3], homography)
+
+            # # Draw temporary rectangle
+            # cv2.line(frame, advert_bot_left[:2], advert_top_left[:2], (255, 100, 0), 2)
+            # cv2.line(frame, advert_top_left[:2], advert_top_right[:2], (255, 100, 0), 2)
+            # cv2.line(frame, advert_top_right[:2], advert_bot_right[:2], (255, 100, 0), 2)
+            # cv2.line(frame, advert_bot_right[:2], advert_bot_left[:2], (255, 100, 0), 2)
+            # cv2.line(frame, advert_bot_right[:2], advert_top_left[:2], (255, 100, 0), 1)
+            # cv2.line(frame, advert_top_right[:2], advert_bot_left[:2], (255, 100, 0), 1)
+            
+
+            # p0 = cv2.goodFeaturesToTrack(detected_lines, mask=None, **feature_params)
+            
+            # for i in p0:
+            #     x,y = i.ravel()
+            #     cv2.circle(frame, (int(x), int(y)), 8, (0, 0, 255), 8)
+
+            # corners = cv2.cornerHarris(detected_lines,Advert.trackbar_value().harris_bSize,Advert.trackbar_value().harris_kSize,Advert.trackbar_value().harris_k / 1000)
+            # cornersDial = cv2.dilate(corners, np.zeros((7,7),np.uint8), iterations=2)
+            # frame[cornersDial>0.01*cornersDial.max()]=[0,0,255]
+
+            # Advert.draw_line_intersections(lines, frame)
+
+            Video.show_multiple_output([frame, hsv_frame, detected_lines, canny_edges, canny_morphErode], 2)
             # cv2.waitKey(0)
         else:
             video.set(cv2.CAP_PROP_POS_FRAMES, 0)
@@ -272,6 +386,8 @@ if __name__ == "__main__":
 
         if cv2.waitKey(int(Video.FPS)) & 0xFF == ord('q'):
             break
+        # if cv2.waitKey(0) & 0xFF == ord('q'):
+        #     break
 
 video.release()
 if Trackbars:
