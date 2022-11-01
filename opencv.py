@@ -1,4 +1,5 @@
 from cmath import atan
+from tkinter.messagebox import NO
 import cv2
 import numpy as np
 import os
@@ -42,7 +43,7 @@ class Video:
 
 
 class Advert:
-
+    pointsprev = 0
     def write_trackbar_file(self):
         data = [f"hue_low = {self.trackbar_value().hue_low}\n"
                 f"hue_high = {self.trackbar_value().hue_high}\n"
@@ -247,16 +248,18 @@ class Advert:
             pass
 
     def getContourPoints(self, img):
-        contours, hierarchy = cv2.findContours(img, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        # contours, hierarchy = cv2.findContours(img, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         i = 0
-        points = [0,0]
+        # points = [0,0]
         for cnt in contours:
             area = cv2.contourArea(cnt)
             peri = cv2.arcLength(cnt, True)
-            if area > 40000 and area < 200000:
+            # if area > 40000 :
+            if area > 200 :
                 approx = cv2.approxPolyDP(cnt, 0.01*peri, True)
                 objCor = len(approx)
-                if objCor == 4:
+                if len(approx) == 4:
                     cv2.drawContours(frame, cnt, -1, (0, 255, 255), 10)
                     cnr1 = approx[0][0] 
                     cnr2 = approx[1][0] 
@@ -266,8 +269,12 @@ class Advert:
                     cv2.circle(frame, (cnr2[0], cnr2[1]), 15, (0, 255, 0), -1)
                     cv2.circle(frame, (cnr3[0], cnr3[1]), 15, (0, 0, 255), -1) 
                     cv2.circle(frame, (cnr4[0], cnr4[1]), 15, (255, 255, 255), -1)
-                    points[i] = (cnr1, cnr2, cnr3, cnr4)
-                    i += 1
+                    points = (cnr1, cnr2, cnr3, cnr4)
+                    self.pointsprev = points
+                    # points[i] = (cnr1, cnr2, cnr3, cnr4)
+                    # i += 1
+                else:
+                    points = self.pointsprev
         return(points)
 
 
@@ -279,7 +286,6 @@ class Advert:
         y_pixel = world_point[1] / scalar
         return int(x_pixel), int(y_pixel), scalar
 
-
 Video = Video()
 Advert = Advert()
 video = None
@@ -287,6 +293,8 @@ gaussian_blur = (11, 11)
 
 if __name__ == "__main__":
     video = Video.read("videos\Tennis_video_1.mp4")
+    firsttime = True
+    print('hello')
     if Trackbars:
         Advert.trackbars()
     while video.isOpened():
@@ -334,18 +342,91 @@ if __name__ == "__main__":
                   criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
             pointsCourt = Advert.getContourPoints(detected_lines)  
-
+            p_lbb = pointsCourt[0]
+            p_ltb = pointsCourt[1]
+            p_rtb = pointsCourt[2]
+            p_rbb = pointsCourt[3]
+            
             # p_lbb = pointsCourt[0][0]
             # p_ltb = pointsCourt[0][1]
             # p_rtb = pointsCourt[0][2]
             # p_rbb = pointsCourt[0][3]
-            
+
             # p_lbt = pointsCourt[1][0]
             # p_ltt = pointsCourt[1][1]
             # p_rtt = pointsCourt[1][2]
             # p_rbt = pointsCourt[1][3]
 
-            # p0 = np.array([p_lbb, p_ltb, p_rtb, p_rbb, p_lbt, p_ltt, p_rtt, p_rbt])
+            imgPoints = np.array([[p_lbb, p_ltb, p_rtb, p_rbb]], np.float32)
+
+            # imgPoints = np.array([[p_lbb, p_ltb, p_rtb, p_rbb]], np.float32)
+            # imgPoints = np.array([[p_lbb, p_ltb, p_rtb, p_rbb, p_lbt, p_ltt, p_rtt, p_rbt]], np.float32)
+            # print(imgPoints)
+
+            coordinates_3d = np.array([[[0, 0, 0], [10973, 0, 0], [10973, 23770, 0],[0, 23770, 0]]], np.float32)
+            # coordinates_3d = np.array([[[1372, 0, 0], [1372, 5485, 0], [9601, 5485, 0],[9601, 0, 0]]], np.float32)
+            # coordinates_3d = np.array([[[1372, 0, 0], [1372, 5485, 0], [9601, 5485, 0],[9601, 0, 0], [1372, 5485, 0], [1372, 11885, 0], [9601, 11885, 0],[9601, 5485, 0]]], np.float32)
+            # print(coordinates_3d)
+
+            objp = np.zeros((6*7,3), np.float32)
+            objp[:,:2] = np.mgrid[0:7,0:6].T.reshape(-1,2)
+            # print(objp)
+            firstCamMTX = np.mat([[1.91296634e+03, 0.00000000e+00, 9.59500000e+02],
+                                    [0.00000000e+00, 8.47761442e+02, 5.39500000e+02],
+                                    [0.00000000e+00, 0.00000000e+00, 1.00000000e+00],])
+            ret, camMTX, dist, rvecs, tvecs = cv2.calibrateCamera(coordinates_3d, imgPoints, gray_img.shape[::-1],flags=cv2.CALIB_USE_INTRINSIC_GUESS, cameraMatrix=firstCamMTX, distCoeffs=None)
+            # if(firsttime == True):
+            #     ret, camMTX, dist, rvecs, tvecs = cv2.calibrateCamera(coordinates_3d, imgPoints, gray_img.shape[::-1], None, None)
+            #     firsttime = False
+            # else:
+            #     ret, camMTX2, dist, rvecs, tvecs = cv2.calibrateCamera(coordinates_3d, imgPoints, gray_img.shape[::-1], None, None)
+
+            print("Camera matrix: \n")
+            print(camMTX) 
+            # print("Rotation vector: \n")
+            # print(rvecs)
+            # print("Translation vector: \n")
+            # print(tvecs)
+
+            invCamMTX = np.linalg.inv(camMTX) 
+            # print("Inverse Camera matrix: \n")
+            # print(invCamMTX)   
+
+            advertisementPosition = np.array([[[0, 0, 1000], [0, 2000, 1000], [2000, 2000, 0], [2000, 0, 0]]], np.float32)
+            succes, rposevec, tposevec = cv2.solvePnP(coordinates_3d, imgPoints,camMTX,dist)
+            imgpts, jac = cv2.projectPoints(advertisementPosition, rposevec, tposevec, camMTX, dist)
+
+            cv2.circle(frame, (int(imgpts[0][0][0]),int(imgpts[0][0][1])), 15, (255, 255, 0), -1)
+            cv2.circle(frame, (int(imgpts[1][0][0]),int(imgpts[1][0][1])), 15, (255, 255, 0), -1)
+            cv2.circle(frame, (int(imgpts[2][0][0]),int(imgpts[2][0][1])), 15, (255, 255, 0), -1)
+            cv2.circle(frame, (int(imgpts[3][0][0]),int(imgpts[3][0][1])), 15, (255, 255, 0), -1)
+            # print("rposevec vecs: \n")
+            # print(rposevec)
+            # print("tposevec vectors: \n")
+            # print(tposevec)
+
+            # rMAT , _ = cv2.Rodrigues(rposevec)
+            # print("Rotation mat: \n")
+            # print(rMAT)
+
+            # rtMAT = np.concatenate((rMAT, tposevec), axis=1)
+            # rtMAT = np.concatenate((rtMAT, np.array([[0, 0, 0, 1]])), axis=0)
+            # print("RT mat: \n")
+            # print(rtMAT)
+
+            # invRTMAT = np.linalg.inv(rtMAT)
+            # print("Inverse invRTMAT: \n")
+            # print(invRTMAT) 
+            
+            # uvHomogeneous = cv2.convertPointsToHomogeneous(imgPoints[0])
+
+            # uv1 = np.array(uvHomogeneous[1])
+            # # print(uv1.transpose())
+
+            # camMTXuv = np.matmul(invCamMTX,uv1.transpose())
+            # camRTMTX = np.matmul(cv2.convertPointsFromHomogeneous(invRTMAT), camMTXuv)
+            # print("inv to world \n")
+            # print(camRTMTX)
             # # print(p0)
             # coordinates_3d = np.asarray([[1372, 0, 0], [1372, 5485, 0], [9601, 5485, 0],[9601, 0, 0], [1372, 5485, 0], [1372, 11885, 0], [9601, 11885, 0],[9601, 5485, 0]])
             # advert_world_coordinates = [[0, 0, 0], [0, 200, 0], [200, 200, 0], [200, 0, 0]]
@@ -378,7 +459,7 @@ if __name__ == "__main__":
 
             # Advert.draw_line_intersections(lines, frame)
 
-            Video.show_multiple_output([frame, hsv_frame, detected_lines, canny_edges, canny_morphErode], 2)
+            Video.show_multiple_output([frame, hsv_frame, detected_lines, canny_edges, canny_morphErode, ROIimg], 2)
             # cv2.waitKey(0)
         else:
             video.set(cv2.CAP_PROP_POS_FRAMES, 0)
