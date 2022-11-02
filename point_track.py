@@ -5,7 +5,7 @@ import os
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-video_name = "basketball_1.mp4"
+video_name = "basketball_2.mp4"
 folderOffset = "videos\\"
 input_video = cv2.VideoCapture(folderOffset + video_name)
 advertisement = cv2.imread("UTLogo.png", -1)
@@ -71,10 +71,13 @@ def hardcoded_points_selector(video_name):
         advert_world_coordinates = np.array([[[0, 0, 0], [-3, 0, 0], [0, -3, 0], [0, 0, -3]]], np.float32)
 
     if video_name == "basketball_2.mp4":
-        # Reference to 'basketball_2_points.png'
-        points = np.array([[[755, 278]], [[752, 140]], [[968, 132]], [[968, 266]], [[713, 675]]], dtype=np.float32)
-        coordinates_3d = np.asarray([[0, 0, 0], [0, 122, 0], [182, 122, 0], [182, 0, 0], [-10, -300, 0]])
-        advert_world_coordinates = [[350, -300, 1.1], [350, -200, 1.2], [500, -200, 1.2], [500, -300, 1.1]]
+        # Reference to 'basketball_1_points.png'
+        points = np.array([[[853, 260]], [[849, 161]], [[1032, 166]], [[1024, 266]],
+                           [[369, 432]], [[1518, 475]]], dtype=np.float32)
+        # X, Y, Z (METERS)
+        coordinates_3d = np.array([[[0, 0, 0], [0, 1.1, 0], [1.85, 1.1, 0], [1.65, 0, 0],
+                                    [1.75 / 2 - 15 / 2, -3, -1.2], [1.75 / 2 + 15 / 2, -3, -1.2]]], np.float32)
+        advert_world_coordinates = np.array([[[0, 0, 0], [-3, 0, 0], [0, -3, 0], [0, 0, -3]]], np.float32)
 
     if video_name == "tennis_2.mp4":
         # Reference to 'tennis_1_points.png'
@@ -89,7 +92,7 @@ def hardcoded_points_selector(video_name):
 
 
 Projection = Projection()
-SAVE_VIDEO = False
+SAVE_VIDEO = 0
 SELECT_POINTS_ONLY = 0
 videowriter = None
 
