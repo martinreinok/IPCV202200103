@@ -5,7 +5,7 @@ import os
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-video_name = "tennis_1.mp4"
+video_name = "tennis_2.mp4"
 folderOffset = "videos\\"
 input_video = cv2.VideoCapture(folderOffset + video_name)
 advertisement = cv2.imread("UTLogo.png", -1)
@@ -81,14 +81,14 @@ def hardcoded_points_selector(video_name):
         coordinates_3d = np.asarray([[0, 0, 0], [0, 122, 0], [182, 122, 0], [182, 0, 0], [-155, -305, 1]])
         advert_world_coordinates = [[-155, -305, 1.02], [-155, -200, 1.1], [0, -200, 1.1], [0, -300, 1]]
 
-    if video_name == "tennis_1.mp4":
+    if video_name == "tennis_2.mp4":
         # Reference to 'tennis_1_points.png'
         points = np.array([[[1640, 823]], [[1469, 817]], [[628, 271]], [[708, 272]],
                            [[1484, 454]], [[441, 452]]], dtype=np.float32)
         # X, Y, Z (METERS)
-        coordinates_3d = np.array([[[0, 0, 0], [1.372, 0, 0], [10.973, 23.77, 0], [9.601, 23.77, 0],
-                                    [-1, 23.77 / 2, 0], [11.973, 23.77 / 2, 0]]], np.float32)
-        advert_world_coordinates = [[0, 0, 1], [0, 1, 1], [1, 1, 1], [1, 0, 1]]
+        coordinates_3d = np.array([[[0, 0, 0], [1.372, 0, 0], [10.973, 23.770, 0], [9.601, 23.770, 0],
+                                    [-0.9, 11.885, 0], [10.973 + 1, 11.885, 0]]], np.float32)
+        advert_world_coordinates = np.array([[[0, 0, 0], [11, 0, 0], [0, 24, 0], [0, 0, -2]]], np.float32)
 
     return points, coordinates_3d, advert_world_coordinates
 
@@ -126,9 +126,14 @@ if __name__ == "__main__":
             # TODO: !? Unable to automate this, can't append to numpy array...
             image_points = np.array([[p0[0][0], p0[1][0], p0[2][0], p0[3][0], p0[4][0], p0[5][0]]], np.float32)
 
-            _, CameraMatrix, dist, _, _ = cv2.calibrateCamera(points_coordinates_3d, image_points, old_gray.shape[::-1],
-                                                              None, None)
+            _, CameraMatrix, dist, rotation_vec, translation_vec = cv2.calibrateCamera(points_coordinates_3d,
+                                                                                       image_points,
+                                                                                       old_gray.shape[::-1],
+                                                                                       None, None,
+                                                                                       flags=cv2.CALIB_CB_NORMALIZE_IMAGE)
             print(CameraMatrix)
+            rotation_vec = rotation_vec[0]
+            translation_vec = translation_vec[0]
         else:
             print("Could not open video")
             raise SystemExit
@@ -175,21 +180,23 @@ if __name__ == "__main__":
                     # cv2.line(main_frame, backboard_bot_left, backboard_top_left, (255, 255, 0), 2)
                     image_points = np.array([[p1[0][0], p1[1][0], p1[2][0], p1[3][0], p1[4][0], p1[5][0]]], np.float32)
 
-                    advertisementPosition = np.array([[[0, 0, 0],
-                                                       [11, 0, 0],
-                                                       [0, 24, 0],
-                                                       [0, 0, -1]]], np.float32)
-                    _, rotation_vec, translation_vec = cv2.solvePnP(points_coordinates_3d, image_points, CameraMatrix, None)
-                    imgpts, jac = cv2.projectPoints(advertisementPosition, rotation_vec, translation_vec, CameraMatrix, None)
+                    _, rotation_vec, translation_vec = cv2.solvePnP(points_coordinates_3d, image_points, CameraMatrix,
+                                                                    None)
+
+                    imgpts, jac = cv2.projectPoints(advert_world, rotation_vec, translation_vec, CameraMatrix,
+                                                    None)
 
                     cv2.circle(main_frame, (int(imgpts[0][0][0]), int(imgpts[0][0][1])), 15, (255, 255, 255), -1)
                     cv2.circle(main_frame, (int(imgpts[1][0][0]), int(imgpts[1][0][1])), 15, (255, 0, 0), -1)
                     cv2.circle(main_frame, (int(imgpts[2][0][0]), int(imgpts[2][0][1])), 15, (0, 255, 0), -1)
                     cv2.circle(main_frame, (int(imgpts[3][0][0]), int(imgpts[3][0][1])), 15, (0, 0, 255), -1)
 
-                    cv2.line(main_frame, (int(imgpts[0][0][0]), int(imgpts[0][0][1])), (int(imgpts[1][0][0]), int(imgpts[1][0][1])), (255, 100, 0), 2)
-                    cv2.line(main_frame, (int(imgpts[0][0][0]), int(imgpts[0][0][1])), (int(imgpts[2][0][0]), int(imgpts[2][0][1])), (255, 100, 0), 2)
-                    cv2.line(main_frame, (int(imgpts[0][0][0]), int(imgpts[0][0][1])), (int(imgpts[3][0][0]), int(imgpts[3][0][1])), (255, 100, 0), 2)
+                    cv2.line(main_frame, (int(imgpts[0][0][0]), int(imgpts[0][0][1])),
+                             (int(imgpts[1][0][0]), int(imgpts[1][0][1])), (255, 100, 0), 2)
+                    cv2.line(main_frame, (int(imgpts[0][0][0]), int(imgpts[0][0][1])),
+                             (int(imgpts[2][0][0]), int(imgpts[2][0][1])), (255, 100, 0), 2)
+                    cv2.line(main_frame, (int(imgpts[0][0][0]), int(imgpts[0][0][1])),
+                             (int(imgpts[3][0][0]), int(imgpts[3][0][1])), (255, 100, 0), 2)
                     # cv2.line(main_frame, (int(imgpts[0][0][0]), int(imgpts[0][0][1])), (int(imgpts[0][0][0]), int(imgpts[0][0][1])), (255, 100, 0), 2)
 
                     # cv2.line(main_frame, advert_bot_right[:2], advert_top_left[:2], (255, 100, 0), 1)
@@ -235,7 +242,7 @@ if __name__ == "__main__":
                     # main_frame = cv2.add(main_frame, mask)
                     mainFrame = cv2.add(main_frame, advertWarpResult)
                     """
-                    k = cv2.waitKey(50)
+                    k = cv2.waitKey(1)
                     if k == 27:  # ESC exits the video
                         cv2.destroyAllWindows()
                         input_video.release()
