@@ -5,7 +5,7 @@ import os
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-video_name = "tennis_2.mp4"
+video_name = "basketball_1.mp4"
 folderOffset = "videos\\"
 input_video = cv2.VideoCapture(folderOffset + video_name)
 advertisement = cv2.imread("UTLogo.png", -1)
@@ -61,25 +61,20 @@ def hardcoded_points_selector(video_name):
     points = None
     coordinates_3d = None
     advert_world_coordinates = None
-    if video_name == "Tokyo_2020_Highlight_1.mp4":
-        # First 4 are back board, last is left corner of court
-        # NB TODO: the order here should be changed to same according to below
-        points = np.array([[[963, 299]], [[1061, 305]], [[1058, 359]], [[963, 355]], [[677, 460]]], dtype=np.float32)
-        coordinates_3d = np.asarray([[0, 122, 0], [182, 122, 0], [182, 0, 0], [0, 0, 0], [-660, -270, 0]])
-        advert_world_coordinates = [[-550, -260, 1], [-550, -160, 1.1], [-380, -160, 1.1], [-380, -260, 0.97]]
+    if video_name == "basketball_1.mp4":
+        # Reference to 'basketball_1_points.png'
+        points = np.array([[[966, 355]], [[965, 299]], [[1063, 302]], [[1060, 358]],
+                           [[680, 459]], [[1406, 510]]], dtype=np.float32)
+        # X, Y, Z (METERS)
+        coordinates_3d = np.array([[[0, 0, 0], [0, 1.1, 0], [1.85, 1.1, 0], [1.65, 0, 0],
+                                    [1.75 / 2 - 15 / 2, -3, -1.2], [1.75 / 2 + 15 / 2, -3, -1.2]]], np.float32)
+        advert_world_coordinates = np.array([[[0, 0, 0], [-3, 0, 0], [0, -3, 0], [0, 0, -3]]], np.float32)
 
-    if video_name == "Tokyo_2020_Highlight_2.mp4":
-        # First 4 are back board, last is center left ring of court (on the same line as basket)
-        # bot left, top left, top right, bot right, ground
+    if video_name == "basketball_2.mp4":
+        # Reference to 'basketball_2_points.png'
         points = np.array([[[755, 278]], [[752, 140]], [[968, 132]], [[968, 266]], [[713, 675]]], dtype=np.float32)
         coordinates_3d = np.asarray([[0, 0, 0], [0, 122, 0], [182, 122, 0], [182, 0, 0], [-10, -300, 0]])
         advert_world_coordinates = [[350, -300, 1.1], [350, -200, 1.2], [500, -200, 1.2], [500, -300, 1.1]]
-
-    if video_name == "Tokyo_2020_Highlight_3.mp4":
-        # bot left, top left, top right, bot right
-        points = np.array([[[487, 242]], [[479, 98]], [[705, 90]], [[708, 228]], [[225, 646]]], dtype=np.float32)
-        coordinates_3d = np.asarray([[0, 0, 0], [0, 122, 0], [182, 122, 0], [182, 0, 0], [-155, -305, 1]])
-        advert_world_coordinates = [[-155, -305, 1.02], [-155, -200, 1.1], [0, -200, 1.1], [0, -300, 1]]
 
     if video_name == "tennis_2.mp4":
         # Reference to 'tennis_1_points.png'
@@ -108,6 +103,17 @@ if SAVE_VIDEO:
 
 if __name__ == "__main__":
     while True:
+
+        if SELECT_POINTS_ONLY:
+
+            while True:
+                ret, frame = input_video.read()
+                show_multiple_output([frame], 1)
+                k = cv2.waitKey(0)
+                if k == 27:  # ESC exits the video
+                    cv2.destroyAllWindows()
+                    input_video.release()
+                    raise SystemExit
         frame_count = 0
         input_video.set(cv2.CAP_PROP_POS_FRAMES, 0)
         # Initialize optical flow parameters
@@ -123,14 +129,31 @@ if __name__ == "__main__":
             # Hardcoded initial points (double-click on frame to print coordinates)
             p0, points_coordinates_3d, advert_world = hardcoded_points_selector(video_name)
 
-            # TODO: !? Unable to automate this, can't append to numpy array...
-            image_points = np.array([[p0[0][0], p0[1][0], p0[2][0], p0[3][0], p0[4][0], p0[5][0]]], np.float32)
+            # Check for Z axis values, initial guess cannot have Z axis values
+            initial_image_points = []
+            image_points = []
+            initial_coordinates_3d = []
+            for count, point in enumerate(p0):
+                if points_coordinates_3d[0][count][2] == 0:
+                    initial_image_points.append(point[0])
+                    initial_coordinates_3d.append(points_coordinates_3d[0][count])
+                image_points.append(point[0])
+
+            initial_image_points = np.vstack([[initial_image_points]])
+            image_points = np.vstack([[image_points]])
+            initial_coordinates_3d = np.vstack([[initial_coordinates_3d]])
+
+            _, initialCameraMatrix, _, _, _ = cv2.calibrateCamera(initial_coordinates_3d,
+                                                                  initial_image_points,
+                                                                  old_gray.shape[::-1],
+                                                                  None, None,
+                                                                  flags=cv2.CALIB_CB_NORMALIZE_IMAGE)
 
             _, CameraMatrix, dist, rotation_vec, translation_vec = cv2.calibrateCamera(points_coordinates_3d,
                                                                                        image_points,
                                                                                        old_gray.shape[::-1],
-                                                                                       None, None,
-                                                                                       flags=cv2.CALIB_CB_NORMALIZE_IMAGE)
+                                                                                       initialCameraMatrix, None,
+                                                                                       flags=cv2.CALIB_CB_NORMALIZE_IMAGE + cv2.CALIB_USE_INTRINSIC_GUESS)
             print(CameraMatrix)
             rotation_vec = rotation_vec[0]
             translation_vec = translation_vec[0]
@@ -141,14 +164,6 @@ if __name__ == "__main__":
         """ Main video loop """
         while frame_count < input_video.get(cv2.CAP_PROP_FRAME_COUNT):
             ret, frame = input_video.read()
-            if SELECT_POINTS_ONLY:
-                show_multiple_output([frame], 1)
-                k = cv2.waitKey(0)
-                if k == 27:  # ESC exits the video
-                    cv2.destroyAllWindows()
-                    input_video.release()
-                    raise SystemExit
-
             try:
                 if ret:
                     frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -178,7 +193,12 @@ if __name__ == "__main__":
                     # cv2.line(main_frame, backboard_top_right, backboard_bot_right, (255, 255, 0), 2)
                     # cv2.line(main_frame, backboard_bot_right, backboard_bot_left, (255, 255, 0), 2)
                     # cv2.line(main_frame, backboard_bot_left, backboard_top_left, (255, 255, 0), 2)
-                    image_points = np.array([[p1[0][0], p1[1][0], p1[2][0], p1[3][0], p1[4][0], p1[5][0]]], np.float32)
+
+                    # New image points
+                    points = []
+                    for point in p0:
+                        points.append(point[0])
+                    image_points = np.vstack([[points]])
 
                     _, rotation_vec, translation_vec = cv2.solvePnP(points_coordinates_3d, image_points, CameraMatrix,
                                                                     None)
