@@ -22,33 +22,6 @@ def mouse_click(event, x, y, flags, param):
         print(f"X:{x}, Y:{y}")
 
 
-def calculate_point_on_line(point1, point2, distance_from_p1):
-    x = int(point1[0] + abs(point1[0] - point2[0]) * distance_from_p1)
-    y = int(point1[1] + abs(point1[1] - point2[1]) * distance_from_p1)
-    return x, y
-
-
-class Projection:
-    # https://stackoverflow.com/questions/76134/how-do-i-reverse-project-2d-points-into-3d
-    @staticmethod
-    def pixel2world(x, y, homography_matrix):
-        # https://stackoverflow.com/questions/44578876/opencv-homography-to-find-global-xy-coordinates-from-pixel-xy-coordinates
-        imagepoint = [x, y, 1]
-        worldpoint = np.array(np.dot(homography_matrix, imagepoint))
-        scalar = worldpoint[2]
-        xworld = worldpoint[0] / scalar
-        yworld = worldpoint[1] / scalar
-        return xworld, yworld, scalar
-
-    @staticmethod
-    def world2pixel(world_coordinates, homography_matrix):
-        world_point = np.array(np.dot(np.linalg.inv(homography_matrix), world_coordinates))
-        scalar = world_point[2]
-        x_pixel = world_point[0] / scalar
-        y_pixel = world_point[1] / scalar
-        return int(x_pixel), int(y_pixel), scalar
-
-
 def show_multiple_output(video_feeds_list, scale):
     for i, video_feed in enumerate(video_feeds_list):
         cv2.namedWindow(f"Output {i}", cv2.WINDOW_KEEPRATIO)
@@ -57,7 +30,7 @@ def show_multiple_output(video_feeds_list, scale):
         cv2.setMouseCallback(f"Output {i}", mouse_click)
 
 
-def hardcoded_points_selector(video_name):
+def optical_flow_point_selector(video_name: str):
     points = None
     coordinates_3d = None
     advert_world_coordinates = None
@@ -72,7 +45,7 @@ def hardcoded_points_selector(video_name):
 
     if video_name == "basketball_2.mp4":
         # Reference to 'basketball_1_points.png'
-        points = np.array([[[853, 260]], [[849, 161]], [[1032, 166]], [[1024, 266]],
+        points = np.array([[[853, 260]], [[849, 161]], [[1025, 172]], [[1022, 266]],
                            [[369, 432]], [[1518, 475]]], dtype=np.float32)
         # X, Y, Z (METERS)
         coordinates_3d = np.array([[[0, 0, 0], [0, 1.1, 0], [1.85, 1.1, 0], [1.65, 0, 0],
@@ -91,8 +64,7 @@ def hardcoded_points_selector(video_name):
     return points, coordinates_3d, advert_world_coordinates
 
 
-Projection = Projection()
-SAVE_VIDEO = 0
+SAVE_VIDEO = 1
 SELECT_POINTS_ONLY = 0
 videowriter = None
 
@@ -130,7 +102,7 @@ if __name__ == "__main__":
             old_gray = cv2.cvtColor(old_frame, cv2.COLOR_BGR2GRAY)
             mask = np.zeros_like(old_frame)
             # Hardcoded initial points (double-click on frame to print coordinates)
-            p0, points_coordinates_3d, advert_world = hardcoded_points_selector(video_name)
+            p0, points_coordinates_3d, advert_world = optical_flow_point_selector(video_name)
 
             # Check for Z axis values, initial guess cannot have Z axis values
             initial_image_points = []
@@ -192,10 +164,10 @@ if __name__ == "__main__":
                     # court_corner_left = p1[4][0].astype(np.int64)
 
                     # Draw a line around backboard tracking points
-                    # cv2.line(main_frame, backboard_top_left, backboard_top_right, (255, 255, 0), 2)
-                    # cv2.line(main_frame, backboard_top_right, backboard_bot_right, (255, 255, 0), 2)
-                    # cv2.line(main_frame, backboard_bot_right, backboard_bot_left, (255, 255, 0), 2)
-                    # cv2.line(main_frame, backboard_bot_left, backboard_top_left, (255, 255, 0), 2)
+                    cv2.line(main_frame, backboard_top_left, backboard_top_right, (255, 255, 0), 2)
+                    cv2.line(main_frame, backboard_top_right, backboard_bot_right, (255, 255, 0), 2)
+                    cv2.line(main_frame, backboard_bot_right, backboard_bot_left, (255, 255, 0), 2)
+                    cv2.line(main_frame, backboard_bot_left, backboard_top_left, (255, 255, 0), 2)
 
                     # New image points
                     points = []
@@ -220,10 +192,7 @@ if __name__ == "__main__":
                              (int(imgpts[2][0][0]), int(imgpts[2][0][1])), (255, 100, 0), 2)
                     cv2.line(main_frame, (int(imgpts[0][0][0]), int(imgpts[0][0][1])),
                              (int(imgpts[3][0][0]), int(imgpts[3][0][1])), (255, 100, 0), 2)
-                    # cv2.line(main_frame, (int(imgpts[0][0][0]), int(imgpts[0][0][1])), (int(imgpts[0][0][0]), int(imgpts[0][0][1])), (255, 100, 0), 2)
 
-                    # cv2.line(main_frame, advert_bot_right[:2], advert_top_left[:2], (255, 100, 0), 1)
-                    # cv2.line(main_frame, advert_top_right[:2], (int(imgpts[0][0][0]), int(imgpts[0][0][1])), (255, 100, 0), 1)
                     """
                     ret, camMTX, dist, rvecs, tvecs = cv2.calibrateCamera(points_coordinates_3d, p0,
                                                                           frame_gray.shape[::-1],
@@ -231,16 +200,8 @@ if __name__ == "__main__":
                                                                           distCoeffs=None, cameraMatrix=firstCamMatrix)
                     
                     """
-                    # Points coordinates defined in function: hardcoded_points_selector
-                    # homography = cv2.findHomography(p1, points_coordinates_3d, 0, 0)[0]
-                    # world_coords = Projection.pixel2world(court_corner_left[0], court_corner_left[1], homography)
 
                     '''
-                    # Advert world coordinates defined in function: hardcoded_points_selector
-                    advert_bot_left = Projection.world2pixel(advert_world[0], homography)
-                    advert_top_left = Projection.world2pixel(advert_world[1], homography)
-                    advert_top_right = Projection.world2pixel(advert_world[2], homography)
-                    advert_bot_right = Projection.world2pixel(advert_world[3], homography)
 
                     # Draw temporary rectangle
                     cv2.line(main_frame, advert_bot_left[:2], advert_top_left[:2], (255, 100, 0), 2)
@@ -273,7 +234,7 @@ if __name__ == "__main__":
                     if k == 32:  # Space bar pauses the video
                         cv2.waitKey(0)
                     # Show the output(s)
-                    show_multiple_output([main_frame], 2)
+                    show_multiple_output([main_frame], 1)
                     if SAVE_VIDEO:
                         videowriter.write(main_frame)
 
