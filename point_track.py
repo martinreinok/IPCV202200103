@@ -34,6 +34,7 @@ def optical_flow_point_selector(video_name: str):
     points = None
     coordinates_3d = None
     advert_world_coordinates = None
+    advert_2_world_coordinates = None
     if video_name == "basketball_1.mp4":
         # Reference to 'basketball_1_points.png'
         points = np.array([[[966, 355]], [[965, 299]], [[1063, 302]], [[1060, 358]],
@@ -41,7 +42,8 @@ def optical_flow_point_selector(video_name: str):
         # X, Y, Z (METERS)
         coordinates_3d = np.array([[[0, 0, 0], [0, 1.1, 0], [1.85, 1.1, 0], [1.65, 0, 0],
                                     [1.75 / 2 - 15 / 2, -3, -1.2], [1.75 / 2 + 15 / 2, -3, -1.2]]], np.float32)
-        advert_world_coordinates = np.array([[[0, 0, 0], [-3, 0, 0], [0, -3, 0], [0, 0, -3]]], np.float32)
+        advert_world_coordinates = np.array([[[-6, -3, -1.5], [-6, -2.134, -2], [-3, -2.134, -2], [-3, -3, -1.5]]], np.float32)
+        advert_2_world_coordinates = np.array([[[3, -3, -1.5], [3, -2, -2.5], [6, -2, -2.5], [6, -3, -1.5]]], np.float32)
 
     if video_name == "basketball_2.mp4":
         # Reference to 'basketball_1_points.png'
@@ -49,8 +51,9 @@ def optical_flow_point_selector(video_name: str):
                            [[369, 432]], [[1518, 475]]], dtype=np.float32)
         # X, Y, Z (METERS)
         coordinates_3d = np.array([[[0, 0, 0], [0, 1.1, 0], [1.85, 1.1, 0], [1.65, 0, 0],
-                                    [1.75 / 2 - 15 / 2, -3, -1.2], [1.75 / 2 + 15 / 2, -3, -1.2]]], np.float32)
-        advert_world_coordinates = np.array([[[0, 0, 0], [-3, 0, 0], [0, -3, 0], [0, 0, -3]]], np.float32)
+                                    [1.75 / 2 - 15 / 2, -2.9, -1.2], [1.75 / 2 + 15 / 2, -2.9, -1.2]]], np.float32)
+        advert_world_coordinates = np.array([[[-6, -3, -1.5], [-6, -2.134, -2], [-3, -2.134, -2], [-3, -3, -1.5]]], np.float32)
+        advert_2_world_coordinates = np.array([[[3, -3, -1.5], [3, -2, -2.5], [6, -2, -2.5], [6, -3, -1.5]]], np.float32)
 
     if video_name == "tennis_2.mp4":
         # Reference to 'tennis_1_points.png'
@@ -61,10 +64,18 @@ def optical_flow_point_selector(video_name: str):
                                     [-0.9, 11.885, 0], [10.973 + 1, 11.885, 0]]], np.float32)
         advert_world_coordinates = np.array([[[0, 0, 0], [11, 0, 0], [0, 24, 0], [0, 0, -2]]], np.float32)
 
-    return points, coordinates_3d, advert_world_coordinates
+    return points, coordinates_3d, advert_world_coordinates, advert_2_world_coordinates
 
 
-SAVE_VIDEO = 1
+def create_hsv_mask(hsv_filter_frame, hsv_low, hsv_high):
+    hsv = cv2.cvtColor(hsv_filter_frame, cv2.COLOR_BGR2HSV)
+    lower_hsv = np.array([hsv_low[0], hsv_low[1], hsv_low[2]])
+    higher_hsv = np.array([hsv_high[0], hsv_high[1], hsv_high[2]])
+    hsv_mask = cv2.inRange(hsv, lower_hsv, higher_hsv)
+    return hsv_mask
+
+
+SAVE_VIDEO = 0
 SELECT_POINTS_ONLY = 0
 videowriter = None
 
@@ -102,7 +113,7 @@ if __name__ == "__main__":
             old_gray = cv2.cvtColor(old_frame, cv2.COLOR_BGR2GRAY)
             mask = np.zeros_like(old_frame)
             # Hardcoded initial points (double-click on frame to print coordinates)
-            p0, points_coordinates_3d, advert_world = optical_flow_point_selector(video_name)
+            p0, points_coordinates_3d, advert_world, advert_2_world = optical_flow_point_selector(video_name)
 
             # Check for Z axis values, initial guess cannot have Z axis values
             initial_image_points = []
@@ -128,7 +139,7 @@ if __name__ == "__main__":
                                                                                        image_points,
                                                                                        old_gray.shape[::-1],
                                                                                        initialCameraMatrix, None,
-                                                                                       flags=cv2.CALIB_CB_NORMALIZE_IMAGE + cv2.CALIB_USE_INTRINSIC_GUESS)
+                                                                                       flags=cv2.CALIB_USE_INTRINSIC_GUESS + cv2.CALIB_CB_NORMALIZE_IMAGE + cv2.CALIB_FIX_S1_S2_S3_S4)
             print(CameraMatrix)
             rotation_vec = rotation_vec[0]
             translation_vec = translation_vec[0]
@@ -163,68 +174,73 @@ if __name__ == "__main__":
                     backboard_bot_left = p1[3][0].astype(np.int64)
                     # court_corner_left = p1[4][0].astype(np.int64)
 
-                    # Draw a line around backboard tracking points
-                    cv2.line(main_frame, backboard_top_left, backboard_top_right, (255, 255, 0), 2)
-                    cv2.line(main_frame, backboard_top_right, backboard_bot_right, (255, 255, 0), 2)
-                    cv2.line(main_frame, backboard_bot_right, backboard_bot_left, (255, 255, 0), 2)
-                    cv2.line(main_frame, backboard_bot_left, backboard_top_left, (255, 255, 0), 2)
-
                     # New image points
                     points = []
-                    for point in p0:
+                    for point in p1:
                         points.append(point[0])
                     image_points = np.vstack([[points]])
 
                     _, rotation_vec, translation_vec = cv2.solvePnP(points_coordinates_3d, image_points, CameraMatrix,
                                                                     None)
 
-                    imgpts, jac = cv2.projectPoints(advert_world, rotation_vec, translation_vec, CameraMatrix,
-                                                    None)
+                    advert_position, _ = cv2.projectPoints(advert_world, rotation_vec, translation_vec, CameraMatrix,
+                                                             None)
 
-                    cv2.circle(main_frame, (int(imgpts[0][0][0]), int(imgpts[0][0][1])), 15, (255, 255, 255), -1)
-                    cv2.circle(main_frame, (int(imgpts[1][0][0]), int(imgpts[1][0][1])), 15, (255, 0, 0), -1)
-                    cv2.circle(main_frame, (int(imgpts[2][0][0]), int(imgpts[2][0][1])), 15, (0, 255, 0), -1)
-                    cv2.circle(main_frame, (int(imgpts[3][0][0]), int(imgpts[3][0][1])), 15, (0, 0, 255), -1)
+                    advert_2_position, _ = cv2.projectPoints(advert_2_world, rotation_vec, translation_vec, CameraMatrix,
+                                                               None)
 
-                    cv2.line(main_frame, (int(imgpts[0][0][0]), int(imgpts[0][0][1])),
-                             (int(imgpts[1][0][0]), int(imgpts[1][0][1])), (255, 100, 0), 2)
-                    cv2.line(main_frame, (int(imgpts[0][0][0]), int(imgpts[0][0][1])),
-                             (int(imgpts[2][0][0]), int(imgpts[2][0][1])), (255, 100, 0), 2)
-                    cv2.line(main_frame, (int(imgpts[0][0][0]), int(imgpts[0][0][1])),
-                             (int(imgpts[3][0][0]), int(imgpts[3][0][1])), (255, 100, 0), 2)
+                    # Advert 1
+                    advert_bot_left = (int(advert_position[0][0][0]), int(advert_position[0][0][1]))
+                    advert_top_left = (int(advert_position[1][0][0]), int(advert_position[1][0][1]))
+                    advert_top_right = (int(advert_position[2][0][0]), int(advert_position[2][0][1]))
+                    advert_bot_right = (int(advert_position[3][0][0]), int(advert_position[3][0][1]))
 
+                    # Advert 2
+                    advert_2_bot_left = (int(advert_2_position[0][0][0]), int(advert_2_position[0][0][1]))
+                    advert_2_top_left = (int(advert_2_position[1][0][0]), int(advert_2_position[1][0][1]))
+                    advert_2_top_right = (int(advert_2_position[2][0][0]), int(advert_2_position[2][0][1]))
+                    advert_2_bot_right = (int(advert_2_position[3][0][0]), int(advert_2_position[3][0][1]))
+
+                    # Advert 1
                     """
-                    ret, camMTX, dist, rvecs, tvecs = cv2.calibrateCamera(points_coordinates_3d, p0,
-                                                                          frame_gray.shape[::-1],
-                                                                          flags=cv2.CALIB_USE_INTRINSIC_GUESS,
-                                                                          distCoeffs=None, cameraMatrix=firstCamMatrix)
-                    
-                    """
-
-                    '''
-
-                    # Draw temporary rectangle
                     cv2.line(main_frame, advert_bot_left[:2], advert_top_left[:2], (255, 100, 0), 2)
                     cv2.line(main_frame, advert_top_left[:2], advert_top_right[:2], (255, 100, 0), 2)
                     cv2.line(main_frame, advert_top_right[:2], advert_bot_right[:2], (255, 100, 0), 2)
                     cv2.line(main_frame, advert_bot_right[:2], advert_bot_left[:2], (255, 100, 0), 2)
                     cv2.line(main_frame, advert_bot_right[:2], advert_top_left[:2], (255, 100, 0), 1)
                     cv2.line(main_frame, advert_top_right[:2], advert_bot_left[:2], (255, 100, 0), 1)
-                    '''
-                    # Warp advertisement
+
+                    # Advert 2
+                    cv2.line(main_frame, advert_2_bot_left[:2], advert_2_top_left[:2], (255, 100, 255), 2)
+                    cv2.line(main_frame, advert_2_top_left[:2], advert_2_top_right[:2], (255, 100, 255), 2)
+                    cv2.line(main_frame, advert_2_top_right[:2], advert_2_bot_right[:2], (255, 100, 255), 2)
+                    cv2.line(main_frame, advert_2_bot_right[:2], advert_2_bot_left[:2], (255, 100, 255), 2)
+                    cv2.line(main_frame, advert_2_bot_right[:2], advert_2_top_left[:2], (255, 100, 255), 1)
+                    cv2.line(main_frame, advert_2_top_right[:2], advert_2_bot_left[:2], (255, 100, 255), 1)
                     """
+
+                    # Warp advertisement
                     aH, aW, c = advertisement.shape
                     advertPointMatrix = np.float32([[0, 0], [aW, 0], [0, aH], [aW, aH]])
 
-                    advertLocationMatrix = np.float32(
-                        [advert_top_left[:2], advert_top_right[:2], advert_bot_left[:2], advert_bot_right[:2]])
+                    # Advert 1
+                    advertLocationMatrix = np.float32([advert_top_left[:2], advert_top_right[:2], advert_bot_left[:2], advert_bot_right[:2]])
                     perspectiveMatrix = cv2.getPerspectiveTransform(advertPointMatrix, advertLocationMatrix)
                     advertWarpResult = cv2.warpPerspective(advertisement, perspectiveMatrix, (1920, 1080))
+                    # mask here
+                    hsv_advert_mask = create_hsv_mask(hsv_filter_frame=frame,
+                                                      hsv_low=[158, 125, 82], hsv_high=[179, 255, 152])
+                    masked_advert_frame = cv2.bitwise_and(advertWarpResult, advertWarpResult, mask=hsv_advert_mask)
+                    mainFrame = cv2.add(main_frame, masked_advert_frame)
 
-                    grayCol = cv2.cvtColor(advertWarpResult, cv2.COLOR_BGR2GRAY)  # grijswaarde plaatje voor een MASK
-                    advertMask = cv2.inRange(grayCol, 1, 255)
-                    # main_frame = cv2.add(main_frame, mask)
-                    mainFrame = cv2.add(main_frame, advertWarpResult)
+                    # Advert 2
+                    """
+                    advert_2_LocationMatrix = np.float32([advert_2_top_left[:2], advert_2_top_right[:2], advert_2_bot_left[:2], advert_2_bot_right[:2]])
+                    perspectiveMatrix_2 = cv2.getPerspectiveTransform(advertPointMatrix, advert_2_LocationMatrix)
+                    advertWarpResult_2 = cv2.warpPerspective(advertisement, perspectiveMatrix_2, (1920, 1080))
+                    grayCol_2 = cv2.cvtColor(advertWarpResult_2, cv2.COLOR_BGR2GRAY)
+                    advertMask_2 = cv2.inRange(grayCol_2, 1, 255)
+                    mainFrame = cv2.add(mainFrame, advertWarpResult_2)
                     """
                     k = cv2.waitKey(1)
                     if k == 27:  # ESC exits the video
@@ -234,7 +250,7 @@ if __name__ == "__main__":
                     if k == 32:  # Space bar pauses the video
                         cv2.waitKey(0)
                     # Show the output(s)
-                    show_multiple_output([main_frame], 1)
+                    show_multiple_output([mainFrame], 2)
                     if SAVE_VIDEO:
                         videowriter.write(main_frame)
 
