@@ -5,7 +5,7 @@ import os
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-video_name = "tennis_2.mp4"
+video_name = "basketball_1.mp4"
 folderOffset = "videos\\"
 input_video = cv2.VideoCapture(folderOffset + video_name)
 advertisement = cv2.imread("UTLogo.png", -1)
@@ -42,9 +42,9 @@ def optical_flow_point_selector(video_name: str):
         # X, Y, Z (METERS)
         coordinates_3d = np.array([[[0, 0, 0], [0, 1.1, 0], [1.85, 1.1, 0], [1.65, 0, 0],
                                     [1.75 / 2 - 15 / 2, -3, -1.2], [1.75 / 2 + 15 / 2, -3, -1.2]]], np.float32)
-        advert_world_coordinates = np.array([[[-6, -3, -1.5], [-6, -2.134, -2], [-3, -2.134, -2], [-3, -3, -1.5]]],
+        advert_world_coordinates = np.array([[[-6, -3, -1.5], [-6, -2.5, -2], [-3, -2.5, -2], [-3, -3, -1.5]]],
                                             np.float32)
-        advert_2_world_coordinates = np.array([[[3, -3, -1.5], [3, -2, -2.5], [6, -2, -2.5], [6, -3, -1.5]]],
+        advert_2_world_coordinates = np.array([[[3.9, -3, -3], [3.9, -2.5, -3], [9.5, -2.5, -3], [9.5, -3, -3]]],
                                               np.float32)
 
     if video_name == "basketball_2.mp4":
@@ -219,12 +219,14 @@ if __name__ == "__main__":
                     """
 
                     # Advert 2
+                    """
                     cv2.line(main_frame, advert_2_bot_left[:2], advert_2_top_left[:2], (255, 100, 255), 2)
                     cv2.line(main_frame, advert_2_top_left[:2], advert_2_top_right[:2], (255, 100, 255), 2)
                     cv2.line(main_frame, advert_2_top_right[:2], advert_2_bot_right[:2], (255, 100, 255), 2)
                     cv2.line(main_frame, advert_2_bot_right[:2], advert_2_bot_left[:2], (255, 100, 255), 2)
                     cv2.line(main_frame, advert_2_bot_right[:2], advert_2_top_left[:2], (255, 100, 255), 1)
                     cv2.line(main_frame, advert_2_top_right[:2], advert_2_bot_left[:2], (255, 100, 255), 1)
+                    """
 
                     # Warp advertisement
                     aH, aW, c = advertisement.shape
@@ -236,13 +238,14 @@ if __name__ == "__main__":
                     perspectiveMatrix = cv2.getPerspectiveTransform(advertPointMatrix, advertLocationMatrix)
                     advertWarpResult = cv2.warpPerspective(advertisement, perspectiveMatrix, (1920, 1080))
                     # mask here
+
                     if video_name == "basketball_1.mp4":
                         hsv_advert_mask = create_hsv_mask(hsv_filter_frame=frame,
-                                                          hsv_low=[158, 125, 82], hsv_high=[179, 255, 152])
-                    if video_name == "basketball_2.mp4":
+                                                          hsv_low=[110, 110, 40], hsv_high=[179, 255, 156])
+                    elif video_name == "basketball_2.mp4":
                         hsv_advert_mask = create_hsv_mask(hsv_filter_frame=frame,
                                                           hsv_low=[158, 125, 82], hsv_high=[179, 255, 152])
-                    if video_name == "tennis_2.mp4":
+                    elif video_name == "tennis_2.mp4":
                         hsv_advert_mask = create_hsv_mask(hsv_filter_frame=frame,
                                                           hsv_low=[118, 57, 133], hsv_high=[138, 100, 169])
                     else:
@@ -253,14 +256,13 @@ if __name__ == "__main__":
                     mainFrame = cv2.add(main_frame, masked_advert_frame)
 
                     # Advert 2
-                    """
                     advert_2_LocationMatrix = np.float32([advert_2_top_left[:2], advert_2_top_right[:2], advert_2_bot_left[:2], advert_2_bot_right[:2]])
                     perspectiveMatrix_2 = cv2.getPerspectiveTransform(advertPointMatrix, advert_2_LocationMatrix)
                     advertWarpResult_2 = cv2.warpPerspective(advertisement, perspectiveMatrix_2, (1920, 1080))
-                    grayCol_2 = cv2.cvtColor(advertWarpResult_2, cv2.COLOR_BGR2GRAY)
-                    advertMask_2 = cv2.inRange(grayCol_2, 1, 255)
-                    mainFrame = cv2.add(mainFrame, advertWarpResult_2)
-                    """
+
+                    masked_advert_frame = cv2.bitwise_and(advertWarpResult_2, advertWarpResult_2, mask=hsv_advert_mask)
+                    mainFrame = cv2.add(mainFrame, masked_advert_frame)
+
                     k = cv2.waitKey(1)
                     if k == 27:  # ESC exits the video
                         cv2.destroyAllWindows()
