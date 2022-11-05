@@ -5,7 +5,7 @@ import os
 import time
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
-video_name = "tennis_2.mp4"
+video_name = "basketball_2.mp4"
 folderOffset = "videos\\"
 input_video = cv2.VideoCapture(folderOffset + video_name)
 advertisement = cv2.imread("UTLogo.png", -1)
@@ -74,7 +74,8 @@ def optical_flow_point_selector(video_name: str):
         # X, Y, Z (METERS)
         coordinates_3d = np.array([[[0, 0, 0], [1.372, 0, 0], [10.973, 23.77, 0], [9.601, 23.77, 0],
                                     [-1, 23.77 / 2, 0], [11.973, 23.77 / 2, 0]]], np.float32)
-        advert_world_coordinates = np.array([[[11.6, 1, 0], [11.5+0.577, 1, -1], [11.5+0.577, 5, -1], [11.5, 5, 0]]], np.float32)
+        advert_world_coordinates = np.array(
+            [[[11.6, 1, 0], [11.5 + 0.577, 1, -1], [11.5 + 0.577, 5, -1], [11.5, 5, 0]]], np.float32)
         shadow_1_coords = np.array([[[11.6, 1, 0], [13, 2.5, 0], [13, 6.5, 0], [11.5, 5, 0]]],
                                    np.float32)
         advert_2_world_coordinates = np.array([[[9, 1, 0], [9, 4, 0], [3, 4, 0], [3, 1, 0]]],
@@ -92,9 +93,9 @@ def create_hsv_mask(hsv_filter_frame, hsv_low, hsv_high):
 
 
 SAVE_VIDEO = False
-SELECT_POINTS_ONLY = False
+SELECT_POINTS_ONLY = 0
 videowriter = None
-SHOW_TRACKING_POINTS = False
+SHOW_TRACKING_POINTS = True
 PRINT_EXECUTION_TIME = True
 # Turn off advertisements
 SHOW_ADVERTISEMENT_1 = True  # Also includes shadow
@@ -155,10 +156,25 @@ if __name__ == "__main__":
                     initial_coordinates_3d.append(points_coordinates_3d[0][count])
                 image_points.append(point[0])
 
+            """
+            Additional points for camera calibration
+            """
+            if "tennis" in video_name:
+                if video_name == "tennis_1.mp4":
+                    initial_image_points.append(np.array([522, 781], dtype=np.float32))
+                    initial_image_points.append(np.array([359, 777], dtype=np.float32))
+                if video_name == "tennis_2.mp4":
+                    initial_image_points.append(np.array([473, 815], dtype=np.float32))
+                    initial_image_points.append(np.array([303, 817], dtype=np.float32))
+                initial_coordinates_3d.append(np.array([9.601, 0, 0], dtype=np.float32))
+                initial_coordinates_3d.append(np.array([10.973, 0, 0], dtype=np.float32))
+
             initial_image_points = np.vstack([[initial_image_points]])
             image_points = np.vstack([[image_points]])
             initial_coordinates_3d = np.vstack([[initial_coordinates_3d]])
-
+            print(initial_image_points)
+            print(initial_coordinates_3d)
+            # raise SystemExit
             """
             Camera calibration is performed twice before launching the main loop,
             first calibration uses points that are located on 2D plane to generate initial guess for camera matrix
@@ -301,7 +317,8 @@ if __name__ == "__main__":
                         perspectiveMatrix = cv2.getPerspectiveTransform(advertPointMatrix, advertLocationMatrix)
                         shadowWarpResult = cv2.warpPerspective(shadow, perspectiveMatrix, (1920, 1080))
                         shadowWarpResult_blur = cv2.GaussianBlur(shadowWarpResult, (7, 7), 11)
-                        masked_shadow = cv2.bitwise_and(shadowWarpResult_blur, shadowWarpResult_blur, mask=hsv_advert_mask)
+                        masked_shadow = cv2.bitwise_and(shadowWarpResult_blur, shadowWarpResult_blur,
+                                                        mask=hsv_advert_mask)
                         main_frame = cv2.addWeighted(main_frame, 1, masked_shadow, shadow_opacity, 0)
 
                     """
@@ -320,12 +337,14 @@ if __name__ == "__main__":
                     """
                     if SHOW_ADVERTISEMENT_2:
                         advert_2_LocationMatrix = np.float32(
-                            [advert_2_top_left[:2], advert_2_top_right[:2], advert_2_bot_left[:2], advert_2_bot_right[:2]])
+                            [advert_2_top_left[:2], advert_2_top_right[:2], advert_2_bot_left[:2],
+                             advert_2_bot_right[:2]])
                         perspectiveMatrix_2 = cv2.getPerspectiveTransform(advertPointMatrix, advert_2_LocationMatrix)
                         advertWarpResult_2 = cv2.warpPerspective(advertisement, perspectiveMatrix_2, (1920, 1080))
                         if hsv_advert_mask_2 is not None:
                             hsv_advert_mask = hsv_advert_mask_2
-                        masked_advert_frame = cv2.bitwise_and(advertWarpResult_2, advertWarpResult_2, mask=hsv_advert_mask)
+                        masked_advert_frame = cv2.bitwise_and(advertWarpResult_2, advertWarpResult_2,
+                                                              mask=hsv_advert_mask)
                         main_frame = cv2.add(main_frame, masked_advert_frame)
 
                     """
