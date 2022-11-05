@@ -5,7 +5,10 @@ import os
 import time
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
-video_name = "basketball_2.mp4"
+"""
+# Video name can be changed, points are chosen according to video name
+"""
+video_name = "basketball_1.mp4"
 folderOffset = "videos\\"
 input_video = cv2.VideoCapture(folderOffset + video_name)
 advertisement = cv2.imread("UTLogo.png", -1)
@@ -93,9 +96,9 @@ def create_hsv_mask(hsv_filter_frame, hsv_low, hsv_high):
 
 
 SAVE_VIDEO = False
-SELECT_POINTS_ONLY = 0
+SELECT_POINTS_ONLY = False
 videowriter = None
-SHOW_TRACKING_POINTS = True
+SHOW_TRACKING_POINTS = False
 PRINT_EXECUTION_TIME = True
 # Turn off advertisements
 SHOW_ADVERTISEMENT_1 = True  # Also includes shadow
@@ -111,6 +114,11 @@ if SAVE_VIDEO:
 
 if __name__ == "__main__":
     while True:
+        TIME_START = time.time()
+
+        TIME_TOTAL = None
+        TIME_CALIBRATION = None
+        TIME_PROJECTION = None
 
         if SELECT_POINTS_ONLY:
             while True:
@@ -132,7 +140,7 @@ if __name__ == "__main__":
         input_video.set(cv2.CAP_PROP_POS_FRAMES, 0)
         good_new, good_old = None, None
         """
-        Lukas-Kanade parameters are defined here, which are used for the optical flow function
+        # Lukas-Kanade parameters are defined here, which are used for the optical flow function
         """
         lucas_kanade = dict(winSize=(15, 15), maxLevel=2,
                             criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
@@ -145,7 +153,7 @@ if __name__ == "__main__":
                 video_name)
 
             """
-            Point array is selectively copied by checking for Z axis values, as initial guess cannot have Z axis values
+            # Point array is selectively copied by checking for Z axis values, as initial guess cannot have Z axis values
             """
             initial_image_points = []
             image_points = []
@@ -157,7 +165,7 @@ if __name__ == "__main__":
                 image_points.append(point[0])
 
             """
-            Additional points for camera calibration
+            # Additional points for camera calibration
             """
             if "tennis" in video_name:
                 if video_name == "tennis_1.mp4":
@@ -176,9 +184,9 @@ if __name__ == "__main__":
             print(initial_coordinates_3d)
             # raise SystemExit
             """
-            Camera calibration is performed twice before launching the main loop,
-            first calibration uses points that are located on 2D plane to generate initial guess for camera matrix
-            second calibration includes 3D points and improves the initial guess
+            # Camera calibration is performed twice before launching the main loop,
+            # first calibration uses points that are located on 2D plane to generate initial guess for camera matrix
+            # second calibration includes 3D points and improves the initial guess
             """
             _, initialCameraMatrix, _, _, _ = cv2.calibrateCamera(initial_coordinates_3d,
                                                                   initial_image_points,
@@ -199,17 +207,18 @@ if __name__ == "__main__":
             raise SystemExit
 
         """ 
-        Main video loop 
+        # Main video loop 
         """
+        TIME_CALIBRATION = str(round((time.time() - TIME_START) * 1000, 2))
         while frame_count < input_video.get(cv2.CAP_PROP_FRAME_COUNT):
-            startTime = time.time()
+            TIME_START_LOOP = time.time()
             ret, frame = input_video.read()
             try:
                 if ret:
                     frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
                     """
-                    Optical flow is calculated using 2 frames and a set of key-points p0
+                    # Optical flow is calculated using 2 frames and a set of key-points p0
                     """
                     p1, st, err = cv2.calcOpticalFlowPyrLK(old_gray, frame_gray, p0, None, **lucas_kanade)
 
@@ -227,7 +236,7 @@ if __name__ == "__main__":
                     main_frame = cv2.add(frame, mask)
 
                     """
-                    Optical flow points are remapped for solvePNP function
+                    # Optical flow points are remapped for solvePNP function
                     """
                     points = []
                     for point in p1:
@@ -246,9 +255,9 @@ if __name__ == "__main__":
                     advert_2_position, _ = cv2.projectPoints(advert_2_world, rotation_vec, translation_vec,
                                                              CameraMatrix,
                                                              None)
-
+                    TIME_PROJECTION = str(round((time.time() - TIME_START_LOOP) * 1000, 2))
                     """
-                    To make working with points easier, the result from projectPoints is remapped
+                    # To make working with points easier, the result from projectPoints is remapped
                     """
                     # Advert 1 points
                     advert_bot_left = (int(advert_position[0][0][0]), int(advert_position[0][0][1]))
@@ -269,13 +278,13 @@ if __name__ == "__main__":
                     advert_2_bot_right = (int(advert_2_position[3][0][0]), int(advert_2_position[3][0][1]))
 
                     """
-                    Axis line for measurements
-                    cv2.line(main_frame, advert_bot_left[:2], advert_top_left[:2], (255, 100, 0), 2)
+                    # Axis line for measurements
+                    # cv2.line(main_frame, advert_bot_left[:2], advert_top_left[:2], (255, 100, 0), 2)
                     """
 
                     """
-                    HSV masks are used to separate advertisement background from foreground
-                    If advertisements are on different backgrounds, 2 separate masks are used
+                    # HSV masks are used to separate advertisement background from foreground
+                    # If advertisements are on different backgrounds, 2 separate masks are used
                     """
 
                     hsv_advert_mask_2 = None
@@ -308,7 +317,7 @@ if __name__ == "__main__":
                     advertPointMatrix = np.float32([[0, 0], [aW, 0], [0, aH], [aW, aH]])
 
                     """
-                    Advert 1 Shadow perspective warp and masking to frame
+                    # Advert 1 Shadow perspective warp and masking to frame
                     """
                     if SHOW_ADVERTISEMENT_1:
                         shadow_opacity = -3.5  # dark < 0 < white,
@@ -322,7 +331,7 @@ if __name__ == "__main__":
                         main_frame = cv2.addWeighted(main_frame, 1, masked_shadow, shadow_opacity, 0)
 
                     """
-                    Advert 1 perspective warp and masking to frame
+                    # Advert 1 perspective warp and masking to frame
                     """
                     if SHOW_ADVERTISEMENT_1:
                         advertLocationMatrix = np.float32(
@@ -333,7 +342,7 @@ if __name__ == "__main__":
                         main_frame = cv2.add(main_frame, masked_advert_frame)
 
                     """
-                    Advert 2 perspective warp and masking to frame
+                    # Advert 2 perspective warp and masking to frame
                     """
                     if SHOW_ADVERTISEMENT_2:
                         advert_2_LocationMatrix = np.float32(
@@ -348,9 +357,9 @@ if __name__ == "__main__":
                         main_frame = cv2.add(main_frame, masked_advert_frame)
 
                     """
-                    For debugging purposes:
-                    ESC: exits the program
-                    SPACEBAR: pauses the playback
+                    # For debugging purposes:
+                    # ESC: exits the program
+                    # SPACEBAR: pauses the playback
                     """
                     k = cv2.waitKey(1)
                     if k == 27:
@@ -360,7 +369,7 @@ if __name__ == "__main__":
                     if k == 32:
                         cv2.waitKey(0)
                     """
-                    For showing the outputs, a function is used that creates multiple output windows according to input
+                    # For showing the outputs, a function is used that creates multiple output windows according to input
                     """
                     show_multiple_output([main_frame], 2)
                     if SAVE_VIDEO:
@@ -376,10 +385,10 @@ if __name__ == "__main__":
                 print(error)
             frame_count += 1
             """
-            Measure execution time
+            # Measure execution time
             """
-            executionTime = (time.time() - startTime)
-            print("Execution time in ms: " + str(executionTime * 1000))
+            TIME_TOTAL = str(round((time.time() - TIME_START_LOOP) * 1000, 2))
+            print(f"Execution performance (ms): Total: {TIME_TOTAL}  Projection: {TIME_PROJECTION} Calibration: {TIME_CALIBRATION}")
 
         k = cv2.waitKey(0)  # Disable video autoplay each loop
         if k == 27:
