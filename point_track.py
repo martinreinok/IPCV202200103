@@ -2,9 +2,10 @@ import cv2
 import traceback
 import numpy as np
 import os
+import time
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
-video_name = "basketball_1.mp4"
+video_name = "tennis_2.mp4"
 folderOffset = "videos\\"
 input_video = cv2.VideoCapture(folderOffset + video_name)
 advertisement = cv2.imread("UTLogo.png", -1)
@@ -13,7 +14,6 @@ advertisement = cv2.resize(advertisement, (1920, 1080))
 shadow = cv2.imread("shadow.jpg")
 shadow = cv2.cvtColor(shadow, cv2.COLOR_RGBA2RGB)
 shadow = cv2.resize(shadow, (1920, 1080))
-
 
 
 def mouse_click(event, x, y, flags, param):
@@ -60,27 +60,24 @@ def optical_flow_point_selector(video_name: str):
                                    np.float32)
         advert_2_world_coordinates = np.array([[[4, -3, -2], [4, -3, -3], [7, -3, -3], [7, -3, -2]]],
                                               np.float32)
+    if "tennis" in video_name:
+        if video_name == "tennis_1.mp4":
+            # Reference to 'tennis_1_points.png'
+            points = np.array([[[1671, 806]], [[1508, 803]], [[716, 270]], [[788, 271]],
+                               [[1498, 444]], [[539, 430]]], dtype=np.float32)
 
-    if video_name == "tennis_1.mp4":
-        # Reference to 'tennis_1_points.png'
-        points = np.array([[[1671, 806]], [[1508, 803]], [[716, 270]], [[788, 271]],
-                           [[1498, 444]], [[539, 430]]], dtype=np.float32)
+        if video_name == "tennis_2.mp4":
+            # Reference to 'tennis_1_points.png'
+            points = np.array([[[1640, 823]], [[1469, 817]], [[628, 271]], [[708, 272]],
+                               [[1484, 454]], [[441, 452]]], dtype=np.float32)
+
         # X, Y, Z (METERS)
         coordinates_3d = np.array([[[0, 0, 0], [1.372, 0, 0], [10.973, 23.77, 0], [9.601, 23.77, 0],
                                     [-1, 23.77 / 2, 0], [11.973, 23.77 / 2, 0]]], np.float32)
-        advert_world_coordinates = np.array([[[9, 1, 0], [9, 3, 0], [3, 3, 0], [3, 1, 0]]], np.float32)
-        advert_2_world_coordinates = np.array([[[0, 0, 0], [5, 0, 0], [0, 0, 0], [0, 0, 0]]],
-                                              np.float32)
-
-    if video_name == "tennis_2.mp4":
-        # Reference to 'tennis_1_points.png'
-        points = np.array([[[1640, 823]], [[1469, 817]], [[628, 271]], [[708, 272]],
-                           [[1484, 454]], [[441, 452]]], dtype=np.float32)
-        # X, Y, Z (METERS)
-        coordinates_3d = np.array([[[0, 0, 0], [1.372, 0, 0], [10.973, 23.77, 0], [9.601, 23.77, 0],
-                                    [-1, 23.77 / 2, 0], [11.973, 23.77 / 2, 0]]], np.float32)
-        advert_world_coordinates = np.array([[[9, 1, 0], [9, 3, 0], [3, 3, 0], [3, 1, 0]]], np.float32)
-        advert_2_world_coordinates = np.array([[[0, 0, 0], [5, 0, 0], [0, 0, 0], [0, 0, 0]]],
+        advert_world_coordinates = np.array([[[11.6, 1, 0], [11.5+0.577, 1, -1], [11.5+0.577, 5, -1], [11.5, 5, 0]]], np.float32)
+        shadow_1_coords = np.array([[[11.6, 1, 0], [13, 2.5, 0], [13, 6.5, 0], [11.5, 5, 0]]],
+                                   np.float32)
+        advert_2_world_coordinates = np.array([[[9, 1, 0], [9, 4, 0], [3, 4, 0], [3, 1, 0]]],
                                               np.float32)
 
     return points, coordinates_3d, advert_world_coordinates, advert_2_world_coordinates, shadow_1_coords
@@ -97,7 +94,11 @@ def create_hsv_mask(hsv_filter_frame, hsv_low, hsv_high):
 SAVE_VIDEO = False
 SELECT_POINTS_ONLY = False
 videowriter = None
-SHOW_TRACKING_POINTS = True
+SHOW_TRACKING_POINTS = False
+PRINT_EXECUTION_TIME = True
+# Turn off advertisements
+SHOW_ADVERTISEMENT_1 = True  # Also includes shadow
+SHOW_ADVERTISEMENT_2 = True
 
 
 def nothing(x):
@@ -185,6 +186,7 @@ if __name__ == "__main__":
         Main video loop 
         """
         while frame_count < input_video.get(cv2.CAP_PROP_FRAME_COUNT):
+            startTime = time.time()
             ret, frame = input_video.read()
             try:
                 if ret:
@@ -257,20 +259,31 @@ if __name__ == "__main__":
 
                     """
                     HSV masks are used to separate advertisement background from foreground
+                    If advertisements are on different backgrounds, 2 separate masks are used
                     """
 
                     hsv_advert_mask_2 = None
                     if video_name == "basketball_1.mp4":
                         hsv_advert_mask = create_hsv_mask(hsv_filter_frame=frame,
-                                                          hsv_low=[110, 110, 40], hsv_high=[179, 255, 156])
+                                                          hsv_low=[167, 75, 88], hsv_high=[178, 255, 163])
+                        hsv_advert_mask_2 = create_hsv_mask(hsv_filter_frame=frame,
+                                                            hsv_low=[170, 213, 83], hsv_high=[179, 255, 185])
                     elif video_name == "basketball_2.mp4":
                         hsv_advert_mask = create_hsv_mask(hsv_filter_frame=frame,
                                                           hsv_low=[158, 125, 82], hsv_high=[179, 255, 152])
                         hsv_advert_mask_2 = create_hsv_mask(hsv_filter_frame=frame,
-                                                            hsv_low=[0, 0, 0], hsv_high=[179, 254, 255])
+                                                            hsv_low=[168, 213, 83], hsv_high=[179, 255, 185])
+                    elif video_name == "tennis_1.mp4":
+                        hsv_advert_mask = create_hsv_mask(hsv_filter_frame=frame,
+                                                          hsv_low=[31, 78, 146], hsv_high=[48, 123, 202])
+                        hsv_advert_mask_2 = create_hsv_mask(hsv_filter_frame=frame,
+                                                            hsv_low=[129, 72, 140], hsv_high=[140, 114, 202])
+
                     elif video_name == "tennis_2.mp4":
                         hsv_advert_mask = create_hsv_mask(hsv_filter_frame=frame,
-                                                          hsv_low=[118, 57, 133], hsv_high=[138, 100, 169])
+                                                          hsv_low=[19, 55, 149], hsv_high=[51, 108, 214])
+                        hsv_advert_mask_2 = create_hsv_mask(hsv_filter_frame=frame,
+                                                            hsv_low=[118, 55, 134], hsv_high=[130, 93, 163])
                     else:
                         hsv_advert_mask = create_hsv_mask(hsv_filter_frame=frame,
                                                           hsv_low=[0, 0, 0], hsv_high=[179, 255, 255])
@@ -281,35 +294,39 @@ if __name__ == "__main__":
                     """
                     Advert 1 Shadow perspective warp and masking to frame
                     """
-                    shadow_opacity = -3.5  # dark < 0 < white,
-                    advertLocationMatrix = np.float32(
-                        [shadow_top_left[:2], shadow_top_right[:2], shadow_bot_left[:2], shadow_bot_right[:2]])
-                    perspectiveMatrix = cv2.getPerspectiveTransform(advertPointMatrix, advertLocationMatrix)
-                    shadowWarpResult = cv2.warpPerspective(shadow, perspectiveMatrix, (1920, 1080))
-                    shadowWarpResult_blur = cv2.GaussianBlur(shadowWarpResult, (7, 7), 11)
-                    main_frame = cv2.addWeighted(main_frame, 1, shadowWarpResult_blur, shadow_opacity, 0)
+                    if SHOW_ADVERTISEMENT_1:
+                        shadow_opacity = -3.5  # dark < 0 < white,
+                        advertLocationMatrix = np.float32(
+                            [shadow_top_left[:2], shadow_top_right[:2], shadow_bot_left[:2], shadow_bot_right[:2]])
+                        perspectiveMatrix = cv2.getPerspectiveTransform(advertPointMatrix, advertLocationMatrix)
+                        shadowWarpResult = cv2.warpPerspective(shadow, perspectiveMatrix, (1920, 1080))
+                        shadowWarpResult_blur = cv2.GaussianBlur(shadowWarpResult, (7, 7), 11)
+                        masked_shadow = cv2.bitwise_and(shadowWarpResult_blur, shadowWarpResult_blur, mask=hsv_advert_mask)
+                        main_frame = cv2.addWeighted(main_frame, 1, masked_shadow, shadow_opacity, 0)
 
                     """
                     Advert 1 perspective warp and masking to frame
                     """
-                    advertLocationMatrix = np.float32(
-                        [advert_top_left[:2], advert_top_right[:2], advert_bot_left[:2], advert_bot_right[:2]])
-                    perspectiveMatrix = cv2.getPerspectiveTransform(advertPointMatrix, advertLocationMatrix)
-                    advertWarpResult = cv2.warpPerspective(advertisement, perspectiveMatrix, (1920, 1080))
-                    masked_advert_frame = cv2.bitwise_and(advertWarpResult, advertWarpResult, mask=hsv_advert_mask)
-                    main_frame = cv2.add(main_frame, masked_advert_frame)
+                    if SHOW_ADVERTISEMENT_1:
+                        advertLocationMatrix = np.float32(
+                            [advert_top_left[:2], advert_top_right[:2], advert_bot_left[:2], advert_bot_right[:2]])
+                        perspectiveMatrix = cv2.getPerspectiveTransform(advertPointMatrix, advertLocationMatrix)
+                        advertWarpResult = cv2.warpPerspective(advertisement, perspectiveMatrix, (1920, 1080))
+                        masked_advert_frame = cv2.bitwise_and(advertWarpResult, advertWarpResult, mask=hsv_advert_mask)
+                        main_frame = cv2.add(main_frame, masked_advert_frame)
 
                     """
                     Advert 2 perspective warp and masking to frame
                     """
-                    advert_2_LocationMatrix = np.float32(
-                        [advert_2_top_left[:2], advert_2_top_right[:2], advert_2_bot_left[:2], advert_2_bot_right[:2]])
-                    perspectiveMatrix_2 = cv2.getPerspectiveTransform(advertPointMatrix, advert_2_LocationMatrix)
-                    advertWarpResult_2 = cv2.warpPerspective(advertisement, perspectiveMatrix_2, (1920, 1080))
-                    if hsv_advert_mask_2 is not None:
-                        hsv_advert_mask = cv2.bitwise_not(hsv_advert_mask_2)
-                    masked_advert_frame = cv2.bitwise_and(advertWarpResult_2, advertWarpResult_2, mask=hsv_advert_mask)
-                    main_frame = cv2.add(main_frame, masked_advert_frame)
+                    if SHOW_ADVERTISEMENT_2:
+                        advert_2_LocationMatrix = np.float32(
+                            [advert_2_top_left[:2], advert_2_top_right[:2], advert_2_bot_left[:2], advert_2_bot_right[:2]])
+                        perspectiveMatrix_2 = cv2.getPerspectiveTransform(advertPointMatrix, advert_2_LocationMatrix)
+                        advertWarpResult_2 = cv2.warpPerspective(advertisement, perspectiveMatrix_2, (1920, 1080))
+                        if hsv_advert_mask_2 is not None:
+                            hsv_advert_mask = hsv_advert_mask_2
+                        masked_advert_frame = cv2.bitwise_and(advertWarpResult_2, advertWarpResult_2, mask=hsv_advert_mask)
+                        main_frame = cv2.add(main_frame, masked_advert_frame)
 
                     """
                     For debugging purposes:
@@ -339,6 +356,11 @@ if __name__ == "__main__":
                 traceback.print_exc()
                 print(error)
             frame_count += 1
+            """
+            Measure execution time
+            """
+            executionTime = (time.time() - startTime)
+            print("Execution time in ms: " + str(executionTime * 1000))
 
         k = cv2.waitKey(0)  # Disable video autoplay each loop
         if k == 27:
